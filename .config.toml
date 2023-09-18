@@ -1,0 +1,11 @@
+[app]
+name = "github.com/lookingcoolonavespa/go_crochess_backend"
+port = 8080
+
+[database]
+host = "localhost"
+port = 5432
+name = "postgres"
+username = "postgres"
+password = "password"
+schema = "crochess"
