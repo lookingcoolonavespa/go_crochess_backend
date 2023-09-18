@@ -7,8 +7,8 @@ type Game struct {
 	Time                 int         `json:"time"`
 	Increment            int         `json:"increment"`
 	TimeStampAtTurnStart int64       `json:"time_stamp_at_turn_start"`
-	WhiteTime            int64       `json:"white_time"`
-	BlackTime            int64       `json:"black_time"`
+	WhiteTime            int         `json:"white_time"`
+	BlackTime            int         `json:"black_time"`
 	History              string      `json:"history"`
 	Moves                string      `json:"moves"`
 	Result               string      `json:"result"`
@@ -18,7 +18,7 @@ type Game struct {
 }
 
 type GameRepo interface {
-	Get(g *Game) (*Game, error)
-	Update(id int, updater func(g *Game, changes map[string]interface{}) error) error
+	Get(id int) (*Game, error)
+	Update(id int, changes map[string]interface{}) error
 	Insert(g *Game) error
 }

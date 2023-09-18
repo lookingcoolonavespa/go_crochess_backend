@@ -23,7 +23,11 @@ func (c *GameseeksMockRepo) Insert(g *domain.Gameseek) error {
 }
 
 func (c *GameseeksMockRepo) Delete(seekers ...string) error {
-	args := c.Called(seekers)
+	var interfaceSeekers []interface{}
+	for _, s := range seekers {
+		interfaceSeekers = append(interfaceSeekers, s)
+	}
+	args := c.Called(interfaceSeekers...)
 
-	return args.Error(1)
+	return args.Error(0)
 }

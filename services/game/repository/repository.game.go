@@ -2,6 +2,7 @@ package repository_game
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -99,23 +100,19 @@ func (c gameRepo) Insert(g *domain.Game) error {
 	return nil
 }
 
-func (c gameRepo) Update(id int, updater func(g *domain.Game, changes map[string]interface{})) error {
-	g, err := c.Get(id)
-	if err != nil {
-		return err
-	}
-
-	changes := make(map[string]interface{})
-	updater(g, changes)
-
+func (c gameRepo) Update(id int, changes map[string]interface{}) error {
+	var g domain.Game
 	var updateStr string
-	gType := reflect.TypeOf(*g)
+	gType := reflect.TypeOf(g)
 	for i := 0; i < gType.NumField(); i++ {
 		field := gType.Field(i)
 		fieldName := field.Name
 
 		if _, exists := changes[fieldName]; exists {
 			columnName := field.Tag.Get("json")
+			if columnName == "" {
+				return errors.New(fmt.Sprintf("Encountered an error: %s is not a valid field in Game", fieldName))
+			}
 			updateStr += fmt.Sprintf("%s = %v, ", columnName, changes[fieldName])
 		}
 	}

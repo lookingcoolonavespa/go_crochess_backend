@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS crochess.game (
     method VARCHAR(50),
     version INTEGER NOT NULL,
     time_stamp_at_turn_start BIGINT,
-    white_time BIGINT,
-    black_time BIGINT,
+    white_time INT,
+    black_time INT,
     history TEXT,
     moves TEXT
 );

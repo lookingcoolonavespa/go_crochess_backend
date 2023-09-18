@@ -73,23 +73,6 @@ func TestGameRepo_Update(t *testing.T) {
 	defer db.Close()
 
 	gameID := 0
-	row := sqlmock.NewRows([]string{
-		"id",
-		"white_id",
-		"black_id",
-		"time",
-		"increment",
-		"result",
-		"winner",
-		"version",
-		"time_stamp_at_turn_start",
-		"white_time",
-		"black_time",
-		"history",
-		"moves",
-	}).
-		AddRow(gameID, "faa", "fab", 5000, 0, "", "", 0, time.Now().Unix(), 5000, 5000, "", "")
-
 	mockGame := new(domain.Game)
 
 	err := faker.FakeData(mockGame)
@@ -97,21 +80,8 @@ func TestGameRepo_Update(t *testing.T) {
 
 	newVersion := 1
 	newWhiteTime := 50000000
-	query := fmt.Sprintf(`
-        SELECT * 
-        FROM %s.game g
-        LEFT JOIN drawrecord dr
-            ON g.id = dr.game_id
-        WHERE g.id = $1
-    `,
-		viper.GetString("database.schema"),
-	)
-	mock.ExpectPrepare(query).
-		ExpectQuery().
-		WithArgs(gameID).
-		WillReturnRows(row)
 
-	query = fmt.Sprintf(`
+	query := fmt.Sprintf(`
     UPDATE %s.gameseeks 
     SET 
         white_time = %d,
@@ -130,12 +100,11 @@ func TestGameRepo_Update(t *testing.T) {
 
 	r := NewGameRepo(db)
 
-	updater := func(g *domain.Game, changes map[string]interface{}) {
-		changes["Version"] = newVersion
-		changes["WhiteTime"] = newWhiteTime
-	}
+	changes := make(map[string]interface{})
+	changes["Version"] = newVersion
+	changes["WhiteTime"] = newWhiteTime
 
-	err = r.Update(gameID, updater)
+	err = r.Update(gameID, changes)
 
 	assert.NoError(t, err)
 }
@@ -189,8 +158,8 @@ func TestGameRepo_Insert(t *testing.T) {
 		Increment:            increment,
 		Version:              version,
 		TimeStampAtTurnStart: timeStampAtTurnStart,
-		WhiteTime:            int64(whiteTime),
-		BlackTime:            int64(blackTime),
+		WhiteTime:            whiteTime,
+		BlackTime:            blackTime,
 	})
 
 	assert.NoError(t, err)
