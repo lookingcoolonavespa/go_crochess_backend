@@ -88,11 +88,14 @@ func TestGameRepo_Update(t *testing.T) {
         version = %d
     WHERE
         id = %d
+    AND
+        version = %d
     `,
 		viper.GetString("database.schema"),
 		newWhiteTime,
 		newVersion,
 		gameID,
+		mockGame.Version,
 	)
 
 	prep := mock.ExpectPrepare(query)
@@ -101,11 +104,11 @@ func TestGameRepo_Update(t *testing.T) {
 	r := NewGameRepo(db)
 
 	changes := make(map[string]interface{})
-	changes["Version"] = newVersion
 	changes["WhiteTime"] = newWhiteTime
 
-	err = r.Update(gameID, changes)
+	updated, err := r.Update(gameID, mockGame.Version, changes)
 
+	assert.True(t, updated)
 	assert.NoError(t, err)
 }
 

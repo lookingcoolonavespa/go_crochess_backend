@@ -100,7 +100,7 @@ func (c gameRepo) Insert(g *domain.Game) error {
 	return nil
 }
 
-func (c gameRepo) Update(id int, changes map[string]interface{}) error {
+func (c gameRepo) Update(id int, version int, changes map[string]interface{}) (bool, error) {
 	var g domain.Game
 	var updateStr string
 	gType := reflect.TypeOf(g)
@@ -111,7 +111,7 @@ func (c gameRepo) Update(id int, changes map[string]interface{}) error {
 		if _, exists := changes[fieldName]; exists {
 			columnName := field.Tag.Get("json")
 			if columnName == "" {
-				return errors.New(fmt.Sprintf("Encountered an error: %s is not a valid field in Game", fieldName))
+				return false, errors.New(fmt.Sprintf("Encountered an error: %s is not a valid field in Game", fieldName))
 			}
 			updateStr += fmt.Sprintf("%s = %v, ", columnName, changes[fieldName])
 		}
@@ -121,23 +121,31 @@ func (c gameRepo) Update(id int, changes map[string]interface{}) error {
 
 	sql := fmt.Sprintf(`
     UPDATE %s.gameseeks 
-    SET %s
+    SET 
+        version = %d,
+        %s
     WHERE
         id = %d
+    AND
+        version = %d
     `,
 		viper.GetString("database.schema"),
+		version+1,
 		updateStr,
-		g.ID,
+		id,
+		version,
 	)
 	stmt, err := c.db.Prepare(sql)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	_, err = stmt.Exec()
+	result, err := stmt.Exec()
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	rowsAffected, err := result.RowsAffected()
+
+	return rowsAffected > 0, nil
 }

@@ -20,10 +20,11 @@ func (c *GameMockRepo) Get(id int) (*domain.Game, error) {
 	return result.(*domain.Game), args.Error(1)
 }
 
-func (c *GameMockRepo) Update(id int, changes map[string]interface{}) error {
-	args := c.Called(id, changes)
+func (c *GameMockRepo) Update(id int, version int, changes map[string]interface{}) (bool, error) {
+	args := c.Called(id, version, changes)
+	result := args.Get(0)
 
-	return args.Error(0)
+	return result.(bool), args.Error(1)
 }
 
 func (c *GameMockRepo) Insert(g *domain.Game) error {

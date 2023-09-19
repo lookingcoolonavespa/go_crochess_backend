@@ -19,6 +19,6 @@ type Game struct {
 
 type GameRepo interface {
 	Get(id int) (*Game, error)
-	Update(id int, changes map[string]interface{}) error
+	Update(id int, version int, changes map[string]interface{}) (bool, error)
 	Insert(g *Game) error
 }
