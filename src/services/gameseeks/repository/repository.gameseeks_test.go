@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/model"
+	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,8 +34,7 @@ func TestGameseeksRepository_List(t *testing.T) {
 		`SELECT * FROM gameseeks`,
 	)
 
-	prep := mock.ExpectPrepare(query)
-	prep.ExpectQuery().WillReturnRows(rows)
+	mock.ExpectQuery(query).WillReturnRows(rows)
 
 	r := NewGameseeksRepo(db)
 
@@ -61,13 +60,13 @@ func TestGameseeksRepository_Insert(t *testing.T) {
         $1, $2, $3, $4
     )`,
 	)
-	prep := mock.ExpectPrepare(query)
 
 	color := "black"
 	time := 30000
 	increment := 5
 	seeker := "fdafea"
-	prep.ExpectExec().WithArgs(color, time, increment, seeker).
+
+	mock.ExpectExec(query).WithArgs(color, time, increment, seeker).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	r := NewGameseeksRepo(db)
@@ -92,21 +91,24 @@ func TestGameseeksRepository_Delete(t *testing.T) {
 	seeker1 := "fdafda"
 	seeker2 := "faaaa"
 	query := fmt.Sprintf(`
-    DELETE FROM gameseeks
+    DELETE FROM 
+        gameseeks
     WHERE 
-        seeker IN ('%s', '%s')`,
-		seeker1,
-		seeker2,
+        seeker 
+    IN (
+        $1, $2
+    )`,
 	)
 
-	prep := mock.ExpectPrepare(query)
-
-	prep.ExpectExec().
+	mock.ExpectBegin()
+	mock.ExpectExec(query).
+		WithArgs(seeker1, seeker2).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	r := NewGameseeksRepo(db)
 
-	err := r.Delete(context.Background(), seeker1, seeker2)
+	tx, err := r.db.Begin()
+	err = r.Delete(context.Background(), tx, seeker1, seeker2)
 
 	assert.NoError(t, err)
 }

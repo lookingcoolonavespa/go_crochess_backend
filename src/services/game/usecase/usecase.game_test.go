@@ -1,6 +1,7 @@
 package usecase_game
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -9,11 +10,9 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/bxcodec/faker"
-	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/model"
+	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	domain_timerManager "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/timerManager"
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/repository/mock"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/repository/mock"
 	"github.com/notnil/chess"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,59 +26,12 @@ func initMock() (*sql.DB, sqlmock.Sqlmock) {
 	return db, mock
 }
 
-func TestGameUseCase_Insert(t *testing.T) {
-	mockGameRepo := new(repository_game_mock.GameMockRepo)
-	mockGameseeksRepo := new(repository_gameseeks_mock.GameseeksMockRepo)
-	timerManager := new(domain_timerManager.TimerManager)
-	gameUseCase := NewGameUseCase(mockGameseeksRepo, mockGameRepo, timerManager, func() {})
-
-	var mockGame domain.Game
-	err := faker.FakeData(&mockGame)
-	assert.NoError(t, err)
-
-	blackID := "blackid"
-	whiteID := "whiteid"
-	mockGame.BlackID = blackID
-	mockGame.WhiteID = whiteID
-
-	t.Run("Success", func(t *testing.T) {
-		mockGameRepo.On("Insert", &mockGame).Return(nil).Once()
-		mockGameseeksRepo.On("Delete", mockGame.WhiteID, mockGame.BlackID).Return(nil).Once()
-
-		err := gameUseCase.Insert(&mockGame)
-		assert.NoError(t, err)
-
-		mockGameRepo.AssertExpectations(t)
-		mockGameseeksRepo.AssertExpectations(t)
-	})
-
-	t.Run("Failed on Insert", func(t *testing.T) {
-		mockGameRepo.On("Insert", &mockGame).Return(errors.New("Unexpected")).Once()
-
-		err := gameUseCase.Insert(&mockGame)
-		assert.Error(t, err)
-
-		mockGameRepo.AssertExpectations(t)
-		mockGameseeksRepo.AssertExpectations(t)
-	})
-
-	t.Run("Failed on Delete", func(t *testing.T) {
-		mockGameRepo.On("Insert", &mockGame).Return(nil).Once()
-		mockGameseeksRepo.On("Delete", mockGame.WhiteID, mockGame.BlackID).Return(errors.New("Unexpected")).Once()
-
-		err := gameUseCase.Insert(&mockGame)
-		assert.Error(t, err)
-
-		mockGameRepo.AssertExpectations(t)
-		mockGameseeksRepo.AssertExpectations(t)
-	})
-}
-
 func TestGameUseCase_UpdateOnMove(t *testing.T) {
+	db, _ := initMock()
+
 	mockGameRepo := new(repository_game_mock.GameMockRepo)
-	mockGameseeksRepo := new(repository_gameseeks_mock.GameseeksMockRepo)
 	timerManager := new(domain_timerManager.TimerManager)
-	gameUseCase := NewGameUseCase(mockGameseeksRepo, mockGameRepo, timerManager, func() {})
+	gameUseCase := NewGameUseCase(db, mockGameRepo, timerManager, func() {})
 
 	mockGame := domain.Game{
 		ID:                   1,
@@ -111,7 +63,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		mockGameRepo.On("Get", mockGame.ID).Return(&mockGame, nil).Once()
 		mockGameRepo.On("Update", mockGame.ID, mockGame.Version, changes).Return(true, nil).Once()
 
-		err := gameUseCase.UpdateOnMove(mockGame.ID, mockGame.WhiteID, move)
+		_, err := gameUseCase.UpdateOnMove(
+			context.Background(),
+			mockGame.ID,
+			mockGame.WhiteID,
+			move,
+		)
 		assert.NoError(t, err)
 
 		mockGameRepo.AssertExpectations(t)
@@ -133,9 +90,14 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		mockGameRepo.On("Get", mockGame2.ID).Return(&mockGame2, nil).Once()
 		mockGameRepo.On("Update", mockGame2.ID, mockGame2.Version, changes).Return(true, nil).Once()
 
-		gameUseCase := NewGameUseCase(mockGameseeksRepo, mockGameRepo, timerManager, func() {})
+		gameUseCase := NewGameUseCase(db, mockGameRepo, timerManager, func() {})
 
-		err := gameUseCase.UpdateOnMove(mockGame2.ID, mockGame2.BlackID, move)
+		_, err := gameUseCase.UpdateOnMove(
+			context.Background(),
+			mockGame2.ID,
+			mockGame2.BlackID,
+			move,
+		)
 		assert.NoError(t, err)
 
 		mockGameRepo.AssertExpectations(t)
@@ -154,10 +116,19 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			"Method":  chess.FivefoldRepetition.String(),
 		}
 
-		mockGameRepo.On("Get", mockGame2.ID).Return(&mockGame2, nil).Once()
-		mockGameRepo.On("Update", mockGame2.ID, mockGame2.Version, changes).Return(true, nil).Once()
+		mockGameRepo.On("Get", mockGame2.ID).
+			Return(&mockGame2, nil).
+			Once()
+		mockGameRepo.On("Update", mockGame2.ID, mockGame2.Version, changes).
+			Return(true, nil).
+			Once()
 
-		err := gameUseCase.UpdateOnMove(mockGame2.ID, mockGame2.BlackID, move)
+		_, err := gameUseCase.UpdateOnMove(
+			context.Background(),
+			mockGame2.ID,
+			mockGame2.BlackID,
+			move,
+		)
 		assert.NoError(t, err)
 
 		mockGameRepo.AssertExpectations(t)
@@ -166,7 +137,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 	t.Run("Failed on invalid move", func(t *testing.T) {
 		mockGameRepo.On("Get", mockGame.ID).Return(&mockGame, nil).Once()
 
-		err := gameUseCase.UpdateOnMove(mockGame.ID, mockGame.WhiteID, "d4d5")
+		_, err := gameUseCase.UpdateOnMove(
+			context.Background(),
+			mockGame.ID,
+			mockGame.WhiteID,
+			"d4d5",
+		)
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)
@@ -175,7 +151,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 	t.Run("Failed on Get", func(t *testing.T) {
 		mockGameRepo.On("Get", mockGame.ID).Return(nil, errors.New("Unexpected")).Once()
 
-		err := gameUseCase.UpdateOnMove(mockGame.ID, mockGame.WhiteID, "d2d4")
+		_, err := gameUseCase.UpdateOnMove(
+			context.Background(),
+			mockGame.ID,
+			mockGame.WhiteID,
+			"d2d4",
+		)
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)
@@ -191,7 +172,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		mockGameRepo.On("Get", mockGame.ID).Return(&mockGame, nil).Once()
 		mockGameRepo.On("Update", mockGame.ID, mockGame.Version, changes).Return(false, errors.New("Unexpected")).Once()
 
-		err := gameUseCase.UpdateOnMove(mockGame.ID, mockGame.WhiteID, "d2d4")
+		changes, err := gameUseCase.UpdateOnMove(context.Background(), mockGame.ID, mockGame.WhiteID, "d2d4")
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)
@@ -220,9 +201,14 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 
 		channel := make(chan string)
 		gameOverMsg := "Game Over"
-		gameUseCase := NewGameUseCase(mockGameseeksRepo, mockGameRepo, timerManager, func() { channel <- gameOverMsg })
+		gameUseCase := NewGameUseCase(
+			db,
+			mockGameRepo,
+			timerManager,
+			func() { channel <- gameOverMsg },
+		)
 
-		err := gameUseCase.UpdateOnMove(mockGame.ID, mockGame.WhiteID, move)
+		changes, err := gameUseCase.UpdateOnMove(context.Background(), mockGame.ID, mockGame.WhiteID, move)
 		assert.NoError(t, err)
 
 		select {

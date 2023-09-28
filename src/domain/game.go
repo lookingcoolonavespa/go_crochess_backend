@@ -1,5 +1,11 @@
 package domain
 
+import (
+	"context"
+
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/database"
+)
+
 type Game struct {
 	ID                   int         `json:"id"`
 	WhiteID              string      `json:"white_id"`
@@ -18,7 +24,13 @@ type Game struct {
 }
 
 type GameRepo interface {
-	Get(id int) (*Game, error)
-	Update(id int, version int, changes map[string]interface{}) (bool, error)
-	Insert(g *Game) error
+	Get(ctx context.Context, db services_database.DBExecutor, id int) (*Game, error)
+	Update(ctx context.Context, db services_database.DBExecutor, id int, version int, changes map[string]interface{}) (bool, error)
+	Insert(ctx context.Context, db services_database.DBExecutor, g *Game) (int64, error)
+}
+
+type GameUseCase interface {
+	Get(ctx context.Context, id int) (*Game, error)
+	Start(context.Context, *Game) (int64, error)
+	UpdateOnMove(ctx context.Context, gameID int, playerID string, move string) error
 }

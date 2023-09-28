@@ -14,21 +14,38 @@ const (
 	NormalCloseMessage = "web socket connection closing gracefully..."
 )
 
-type Client struct {
+type Client interface {
+	GetID() int
+	Send([]byte)
+	ReadPump(context.Context)
+	WritePump(context.Context)
+}
+
+type client struct {
+	id       int
 	conn     *websocket.Conn
-	Send     chan []byte
+	send     chan []byte
 	wsServer *WebSocketServer
 }
 
-func NewClient(conn *websocket.Conn, wsServer *WebSocketServer) *Client {
-	return &Client{
+func NewClient(id int, conn *websocket.Conn, wsServer *WebSocketServer) Client {
+	return &client{
+		id,
 		conn,
 		make(chan []byte, 256),
 		wsServer,
 	}
 }
 
-func (c *Client) handleClose(ctx context.Context, err error) {
+func (c *client) GetID() int {
+	return c.id
+}
+
+func (c *client) Send(message []byte) {
+	c.send <- message
+}
+
+func (c *client) handleClose(ctx context.Context, err error) {
 	if err == nil {
 		return
 	}
@@ -56,7 +73,7 @@ func (c *Client) handleClose(ctx context.Context, err error) {
 	}
 }
 
-func (c *Client) readPump(
+func (c *client) ReadPump(
 	ctx context.Context,
 ) {
 	for {
@@ -80,14 +97,14 @@ func (c *Client) readPump(
 	}
 }
 
-func (c *Client) writePump(ctx context.Context) {
+func (c *client) WritePump(ctx context.Context) {
 	pingTimer := time.NewTicker(PingPeriod)
 	defer func() {
 		pingTimer.Stop()
 	}()
 	for {
 		select {
-		case message := <-c.Send:
+		case message := <-c.send:
 			w, err := c.conn.Writer(ctx, websocket.MessageText)
 			if err != nil {
 				c.handleClose(ctx, err)

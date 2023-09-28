@@ -96,42 +96,42 @@ func TestTopic_matcher(t *testing.T) {
 	}
 }
 
-func TestTopic_paramMatcher(t *testing.T) {
-	tests := []struct {
-		name        string
-		basePattern string
-		testPattern []byte
-		expected    string
-	}{
-		{
-			name:        "success",
-			basePattern: "topic",
-			testPattern: []byte("topic/param"),
-			expected:    "param",
-		},
-		{
-			name:        "fail",
-			basePattern: "topic",
-			testPattern: []byte("topic/paramA/paramB"),
-			expected:    "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(
-			tt.name,
-			func(t *testing.T) {
-				topic, err := NewTopic(tt.basePattern)
-				if err != nil {
-					t.Errorf("base pattern caused an error\nbase pattern: %s", tt.basePattern)
-				}
-
-				param := topic.paramMatcher(tt.testPattern)
-
-				if param != tt.expected {
-					t.Errorf("expected: %s\nreceived: %s", tt.expected, param)
-				}
-			},
-		)
-	}
-}
+// func TestTopic_HandleWSMessage(t *testing.T) {
+// 	tests := []struct {
+// 		name        string
+// 		basePattern string
+// 		testPattern []byte
+// 		expected    string
+// 	}{
+// 		{
+// 			name:        "success",
+// 			basePattern: "topic",
+// 			testPattern: []byte("topic/param"),
+// 			expected:    "param",
+// 		},
+// 		{
+// 			name:        "fail",
+// 			basePattern: "topic",
+// 			testPattern: []byte("topic/paramA/paramB"),
+// 			expected:    "",
+// 		},
+// 	}
+//
+// 	for _, tt := range tests {
+// 		t.Run(
+// 			tt.name,
+// 			func(t *testing.T) {
+// 				topic, err := NewTopic(tt.basePattern)
+// 				if err != nil {
+// 					t.Errorf("base pattern caused an error\nbase pattern: %s", tt.basePattern)
+// 				}
+//
+// 				param := topic.paramMatcher(tt.testPattern)
+//
+// 				if param != tt.expected {
+// 					t.Errorf("expected: %s\nreceived: %s", tt.expected, param)
+// 				}
+// 			},
+// 		)
+// 	}
+// }

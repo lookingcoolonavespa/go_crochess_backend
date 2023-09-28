@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+
+	domain_websocket_mock "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket/mock"
 )
 
 type mockMessage struct {
@@ -42,14 +44,14 @@ func setupWebSocketRouter(t *testing.T, expected string) (*WebSocketRouter, erro
 		return nil, errors.New("payload field is missing in expected")
 	}
 
-	MockHandleFunc := func(client *Client, payload []byte) error {
+	mockHandleFunc := func(ctx context.Context, room Room, client Client, payload []byte) error {
 		if string(payload) != expectedPayload[1] {
 			return errors.New(fmt.Sprintf("expected payload: %v\nreceived payload: %v", expectedPayload[1], (payload)))
 		}
 		return nil
 	}
 
-	topic.RegisterEvent(testEvent, MockHandleFunc)
+	topic.RegisterEvent(testEvent, mockHandleFunc)
 
 	r.PushNewRoute(topic)
 
@@ -105,11 +107,7 @@ func TestWebSocketRouter_HandleWSMessage(t *testing.T) {
 
 				err = r.HandleWSMessage(
 					context.Background(),
-					&Client{
-						conn:     nil,
-						Send:     make(chan []byte),
-						wsServer: nil,
-					},
+					domain_websocket_mock.NewMockClient(make(chan []byte)),
 					[]byte(tt.expected),
 					len(tt.expected),
 				)

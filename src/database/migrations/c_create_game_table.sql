@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS crochess.game (
     id SERIAL PRIMARY KEY,
-    white_id VARCHAR(255) NOT NULL,
-    black_id VARCHAR(255) NOT NULL,
+    white_id INTEGER NOT NULL,
+    black_id INTEGER NOT NULL,
     time INTEGER NOT NULL,
     increment INTEGER NOT NULL CHECK (increment >= 0 AND increment <= 60),
     result VARCHAR(20),

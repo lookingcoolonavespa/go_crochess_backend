@@ -10,7 +10,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/bxcodec/faker"
-	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/model"
+	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -64,12 +64,11 @@ func TestGameRepo_Get(t *testing.T) {
     `,
 	)
 
-	prep := mock.ExpectPrepare(query)
-	prep.ExpectQuery().WillReturnRows(rows)
+	mock.ExpectQuery(query).WillReturnRows(rows)
 
-	r := NewGameRepo(db)
+	r := NewGameRepo()
 
-	game, err := r.Get(context.Background(), gameID)
+	game, err := r.Get(context.Background(), db, gameID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, game)
@@ -107,15 +106,18 @@ func TestGameRepo_Update(t *testing.T) {
 		mockGame.Version,
 	)
 
-	prep := mock.ExpectPrepare(query)
-	prep.ExpectExec().WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectBegin()
+	mock.ExpectExec(query).WillReturnResult(sqlmock.NewResult(int64(gameID), 1))
 
-	r := NewGameRepo(db)
+	r := NewGameRepo()
 
 	changes := make(map[string]interface{})
 	changes["WhiteTime"] = newWhiteTime
 
-	updated, err := r.Update(context.Background(), gameID, mockGame.Version, changes)
+	tx, err := db.Begin()
+	assert.NoError(t, err)
+
+	updated, err := r.Update(context.Background(), tx, gameID, mockGame.Version, changes)
 
 	assert.NoError(t, err)
 	assert.True(t, updated)
@@ -126,7 +128,7 @@ func TestGameRepo_Insert(t *testing.T) {
 
 	defer db.Close()
 
-	query := fmt.Sprintf(`
+	gameQuery := fmt.Sprintf(`
     INSERT INTO game (
         white_id,
         black_id,
@@ -140,7 +142,18 @@ func TestGameRepo_Insert(t *testing.T) {
         $1, $2, $3, $4, $5, $6, $7, $8
     )`,
 	)
-	prep := mock.ExpectPrepare(query)
+
+	drawrecordQuery := fmt.Sprintf(`
+    INSERT INTO drawrecord (
+        game_id,
+        white,
+        black
+    ) VALUES (
+        $1, $2, $2
+    )`,
+	)
+
+	expectedGameID := int64(64)
 
 	whiteID := "four"
 	blackID := "five"
@@ -150,21 +163,32 @@ func TestGameRepo_Insert(t *testing.T) {
 	timeStampAtTurnStart := time.Now().Unix()
 	whiteTime := timeData
 	blackTime := timeData
-	prep.ExpectExec().WithArgs(
-		whiteID,
-		blackID,
-		timeData,
-		increment,
-		version,
-		timeStampAtTurnStart,
-		whiteTime,
-		blackTime,
-	).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	r := NewGameRepo(db)
+	mock.ExpectBegin()
+	mock.ExpectExec(gameQuery).
+		WithArgs(
+			whiteID,
+			blackID,
+			timeData,
+			increment,
+			version,
+			timeStampAtTurnStart,
+			whiteTime,
+			blackTime,
+		).
+		WillReturnResult(sqlmock.NewResult(expectedGameID, 1))
+	mock.ExpectExec(drawrecordQuery).
+		WithArgs(expectedGameID, false).
+		WillReturnResult(sqlmock.NewResult(expectedGameID, 1))
 
-	err := r.Insert(
+	r := NewGameRepo()
+
+	tx, err := db.Begin()
+	assert.NoError(t, err)
+
+	gameID, err := r.Insert(
 		context.Background(),
+		tx,
 		&domain.Game{
 			WhiteID:              whiteID,
 			BlackID:              blackID,
@@ -175,6 +199,7 @@ func TestGameRepo_Insert(t *testing.T) {
 			WhiteTime:            whiteTime,
 			BlackTime:            blackTime,
 		})
-
 	assert.NoError(t, err)
+
+	assert.Equal(t, expectedGameID, gameID)
 }

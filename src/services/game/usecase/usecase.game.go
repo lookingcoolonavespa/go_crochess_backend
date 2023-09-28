@@ -1,49 +1,54 @@
 package usecase_game
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/model"
+	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	domain_timerManager "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/timerManager"
 	"github.com/notnil/chess"
 )
 
 type gameUseCase struct {
-	gameseeksRepo domain.GameseeksRepo
-	gameRepo      domain.GameRepo
-	timerManager  *domain_timerManager.TimerManager
-	onTimeOut     func()
+	db           *sql.DB
+	gameRepo     domain.GameRepo
+	timerManager *domain_timerManager.TimerManager
+	onTimeOut    func()
 }
 
+type Changes map[string]interface{}
+
 func NewGameUseCase(
-	gameseeksRepo domain.GameseeksRepo,
+	db *sql.DB,
 	gameRepo domain.GameRepo,
 	timerManager *domain_timerManager.TimerManager,
 	onTimeOut func(),
 ) gameUseCase {
-	return gameUseCase{gameseeksRepo, gameRepo, timerManager, onTimeOut}
+	return gameUseCase{
+		db,
+		gameRepo,
+		timerManager,
+		onTimeOut,
+	}
 }
 
-func (c gameUseCase) Insert(g *domain.Game) error {
-	err := c.gameRepo.Insert(g)
+func (c gameUseCase) Get(ctx context.Context, gameID int) (*domain.Game, error) {
+	game, err := c.gameRepo.Get(ctx, c.db, gameID)
 	if err != nil {
-		return err
-	}
-	err = c.gameseeksRepo.Delete(g.WhiteID, g.BlackID)
-	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return game, nil
 }
 
-func makeMove(g *domain.Game, playerID string, move string) (map[string]interface{}, chess.Color, error) {
+func makeMove(g *domain.Game, playerID string, move string) (Changes, chess.Color, error) {
 	// makeMove returns the changes that need to be made to game structured as key/value pairs,
 	// the active color, and errors
-	changes := make(map[string]interface{})
+	changes := make(Changes)
 
 	gameState := chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 	moves := strings.Split(g.Moves, " ")
@@ -107,6 +112,7 @@ func makeMove(g *domain.Game, playerID string, move string) (map[string]interfac
 }
 
 func (c gameUseCase) handleTimer(
+	ctx context.Context,
 	gameID int, version int,
 	duration time.Duration,
 	activeColor chess.Color,
@@ -125,7 +131,7 @@ func (c gameUseCase) handleTimer(
 				changes["Result"] = chess.WhiteWon.String()
 			}
 			changes["Method"] = "Time out"
-			c.gameRepo.Update(gameID, version, changes)
+			c.gameRepo.Update(ctx, c.db, gameID, version, changes)
 			c.onTimeOut()
 		})
 	}
@@ -136,26 +142,31 @@ func intToMillisecondsDuration(value int) time.Duration {
 }
 
 func (c gameUseCase) UpdateOnMove(
+	ctx context.Context,
 	gameID int,
 	playerID string,
 	move string,
-) error {
-	g, err := c.gameRepo.Get(gameID)
+) (Changes, error) {
+	tx, err := c.db.BeginTx(ctx, nil)
+	g, err := c.gameRepo.Get(ctx, tx, gameID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	changes, activeColor, err := makeMove(g, playerID, move)
 	if err != nil {
-		return err
+		tx.Rollback()
+		return nil, err
 	}
 
-	updated, err := c.gameRepo.Update(gameID, g.Version, changes)
+	updated, err := c.gameRepo.Update(ctx, tx, gameID, g.Version, changes)
 	if !updated {
-		return errors.New("The move did not reach the server fast enough")
+		tx.Rollback()
+		return nil, errors.New("The move did not reach the server fast enough")
 	}
 	if err != nil {
-		return err
+		tx.Rollback()
+		return nil, err
 	}
 
 	_, gameOver := changes["Outcome"]
@@ -165,7 +176,7 @@ func (c gameUseCase) UpdateOnMove(
 	} else {
 		timerDuration = intToMillisecondsDuration(g.BlackTime)
 	}
-	c.handleTimer(gameID, g.Version+1, timerDuration, activeColor, gameOver)
+	c.handleTimer(ctx, gameID, g.Version+1, timerDuration, activeColor, gameOver)
 
-	return nil
+	return changes, nil
 }

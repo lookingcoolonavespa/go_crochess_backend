@@ -3,9 +3,11 @@ package repository_gameseeks
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
-	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/model"
+	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
+	services_database "github.com/lookingcoolonavespa/go_crochess_backend/src/services/database"
 )
 
 type gameseeksRepo struct {
@@ -13,15 +15,11 @@ type gameseeksRepo struct {
 }
 
 func (c gameseeksRepo) List(ctx context.Context) ([]domain.Gameseek, error) {
-	stmt, err := c.db.Prepare(
-		fmt.Sprintf(`
+	stmt := fmt.Sprintf(`
     SELECT * FROM gameseeks`,
-		))
-	if err != nil {
-		return nil, err
-	}
+	)
 
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := c.db.QueryContext(ctx, stmt)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +48,7 @@ func (c gameseeksRepo) List(ctx context.Context) ([]domain.Gameseek, error) {
 }
 
 func (c gameseeksRepo) Insert(ctx context.Context, gs *domain.Gameseek) error {
-	stmt, err := c.db.Prepare(fmt.Sprintf(`
+	stmt := fmt.Sprintf(`
     INSERT INTO gameseeks (
         color,
         time,
@@ -59,13 +57,11 @@ func (c gameseeksRepo) Insert(ctx context.Context, gs *domain.Gameseek) error {
     ) VALUES (
         $1, $2, $3, $4
     )`,
-	))
-	if err != nil {
-		return err
-	}
+	)
 
-	_, err = stmt.ExecContext(
+	_, err := c.db.ExecContext(
 		ctx,
+		stmt,
 		&gs.Color,
 		&gs.Time,
 		&gs.Increment,
@@ -78,28 +74,21 @@ func (c gameseeksRepo) Insert(ctx context.Context, gs *domain.Gameseek) error {
 	return nil
 }
 
-func (c gameseeksRepo) Delete(ctx context.Context, seekers ...string) error {
+func (c gameseeksRepo) Delete(ctx context.Context, db services_database.DBExecutor, seekers ...string) error {
+	if len(seekers) != 2 {
+		return errors.New(fmt.Sprintf("seeker count should be two\nseeker count: %d", len(seekers)))
+	}
 	sql := fmt.Sprintf(`
-    DELETE FROM gameseeks
+    DELETE FROM 
+        gameseeks
     WHERE
-        seeker IN (`,
+        seeker 
+    IN (
+        $1, $2
+    )`,
 	)
 
-	for i, s := range seekers {
-		if i == len(seekers)-1 {
-			sql += fmt.Sprintf("'%s'", s)
-		} else {
-			sql += fmt.Sprintf("'%s', ", s)
-		}
-	}
-	sql += ")"
-
-	stmt, err := c.db.Prepare(sql)
-	if err != nil {
-		return err
-	}
-
-	_, err = stmt.ExecContext(ctx)
+	_, err := db.ExecContext(ctx, sql, seekers[0], seekers[1])
 	if err != nil {
 		return err
 	}

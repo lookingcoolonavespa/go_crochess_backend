@@ -8,7 +8,7 @@ import (
 )
 
 type WebSocketRouter struct {
-	topics       []*Topic
+	topics       []Topic
 	topicRegex   *regexp.Regexp
 	eventRegex   *regexp.Regexp
 	payloadRegex *regexp.Regexp
@@ -25,24 +25,24 @@ func jsonRegex(field string) (*regexp.Regexp, error) {
 	return re, nil
 }
 
-func NewWebSocketRouter() (*WebSocketRouter, error) {
+func NewWebSocketRouter() (WebSocketRouter, error) {
 	topicRegex, err := jsonRegex("topic")
 	if err != nil {
-		return nil, err
+		return WebSocketRouter{}, err
 	}
 
 	eventRegex, err := jsonRegex("event")
 	if err != nil {
-		return nil, err
+		return WebSocketRouter{}, err
 	}
 
 	payloadRegex, err := jsonRegex("payload")
 	if err != nil {
-		return nil, err
+		return WebSocketRouter{}, err
 	}
 
-	return &WebSocketRouter{
-			make([]*Topic, 0),
+	return WebSocketRouter{
+			make([]Topic, 0),
 			topicRegex,
 			eventRegex,
 			payloadRegex,
@@ -50,11 +50,11 @@ func NewWebSocketRouter() (*WebSocketRouter, error) {
 		nil
 }
 
-func (r *WebSocketRouter) PushNewRoute(topic *Topic) {
+func (r WebSocketRouter) PushNewRoute(topic Topic) {
 	r.topics = append(r.topics, topic)
 }
 
-func (r *WebSocketRouter) HandleWSMessage(ctx context.Context, client *Client, message []byte, messageLength int) error {
+func (r WebSocketRouter) HandleWSMessage(ctx context.Context, client Client, message []byte) error {
 	topicBytes := r.topicRegex.FindSubmatch(message)
 	if len(topicBytes) != 2 {
 		return errors.New("message is not in the correct format: missing topic field")
@@ -71,7 +71,13 @@ func (r *WebSocketRouter) HandleWSMessage(ctx context.Context, client *Client, m
 				return errors.New("message is not in the correct format: missing payload field")
 			}
 
-			err := topic.HandleWSMessage(client, string(eventBytes[1]), payloadBytes[1])
+			err := topic.HandleWSMessage(
+				ctx,
+				client,
+				string(eventBytes[1]),
+				payloadBytes[1],
+				topicBytes[1],
+			)
 			if err != nil {
 				return err
 			}

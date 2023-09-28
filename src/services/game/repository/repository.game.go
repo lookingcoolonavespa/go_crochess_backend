@@ -2,26 +2,25 @@ package repository_game
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"time"
 
-	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/model"
+	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
+	services_database "github.com/lookingcoolonavespa/go_crochess_backend/src/services/database"
 )
 
 type gameRepo struct {
-	db *sql.DB
 }
 
-func NewGameRepo(db *sql.DB) gameRepo {
-	return gameRepo{db}
+func NewGameRepo() gameRepo {
+	return gameRepo{}
 }
 
-func (c gameRepo) Get(ctx context.Context, id int) (*domain.Game, error) {
-	stmt, err := c.db.Prepare(
+func (c gameRepo) Get(ctx context.Context, db services_database.DBExecutor, id int) (*domain.Game, error) {
+	stmt :=
 		fmt.Sprintf(
 			`SELECT 
                 game.*,
@@ -35,21 +34,14 @@ func (c gameRepo) Get(ctx context.Context, id int) (*domain.Game, error) {
                 g.id = dr.game_id
             WHERE
                 g.id = $1`,
-		))
-	if err != nil {
-		return nil, err
-	}
+		)
 
-	rows, err := stmt.QueryContext(ctx, id)
-	if err != nil {
-		return nil, err
-	}
+	row := db.QueryRowContext(ctx, stmt, id)
 
 	game := domain.Game{
 		DrawRecord: new(domain.DrawRecord),
 	}
-	rows.Next()
-	err = rows.Scan(
+	err := row.Scan(
 		&game.ID,
 		&game.WhiteID,
 		&game.BlackID,
@@ -73,8 +65,12 @@ func (c gameRepo) Get(ctx context.Context, id int) (*domain.Game, error) {
 	return &game, nil
 }
 
-func (c gameRepo) Insert(ctx context.Context, g *domain.Game) error {
-	stmt, err := c.db.Prepare(fmt.Sprintf(`
+func (c gameRepo) Insert(
+	ctx context.Context,
+	db services_database.DBExecutor,
+	g *domain.Game,
+) (int64, error) {
+	gameStmt := fmt.Sprintf(`
     INSERT INTO game (
         white_id,
         black_id,
@@ -87,13 +83,11 @@ func (c gameRepo) Insert(ctx context.Context, g *domain.Game) error {
     ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8
     )`,
-	))
-	if err != nil {
-		return err
-	}
+	)
 
-	_, err = stmt.ExecContext(
+	res, err := db.ExecContext(
 		ctx,
+		gameStmt,
 		&g.WhiteID,
 		&g.BlackID,
 		&g.Time,
@@ -104,13 +98,39 @@ func (c gameRepo) Insert(ctx context.Context, g *domain.Game) error {
 		&g.Time,
 	)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	gameID, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	drawRecordStmt := fmt.Sprintf(`
+    INSERT INTO drawrecord (
+        game_id,
+        white,
+        black
+    ) VALUES (
+        $1, $2, $2
+    )`,
+	)
+
+	_, err = db.ExecContext(ctx, drawRecordStmt, gameID, false)
+	if err != nil {
+		return 0, err
+	}
+
+	return gameID, nil
 }
 
-func (c gameRepo) Update(ctx context.Context, id int, version int, changes map[string]interface{}) (bool, error) {
+func (c gameRepo) Update(
+	ctx context.Context,
+	db services_database.DBExecutor,
+	id int,
+	version int,
+	changes map[string]interface{},
+) (bool, error) {
 	var g domain.Game
 	var updateStr string
 	gType := reflect.TypeOf(g)
@@ -129,7 +149,7 @@ func (c gameRepo) Update(ctx context.Context, id int, version int, changes map[s
 	regex := regexp.MustCompile(`\s*,\s*$`)
 	updateStr = regex.ReplaceAllString(updateStr, "")
 
-	sql := fmt.Sprintf(`
+	stmt := fmt.Sprintf(`
     UPDATE game 
     SET 
         version = %d,
@@ -144,17 +164,18 @@ func (c gameRepo) Update(ctx context.Context, id int, version int, changes map[s
 		id,
 		version,
 	)
-	stmt, err := c.db.Prepare(sql)
+
+	result, err := db.ExecContext(ctx, stmt)
 	if err != nil {
 		return false, err
 	}
 
-	result, err := stmt.ExecContext(ctx)
-	if err != nil {
-		return false, err
-	}
+	fmt.Printf("%v", result)
 
 	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
 
 	return rowsAffected > 0, nil
 }
