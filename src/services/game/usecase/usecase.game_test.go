@@ -57,17 +57,21 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			"TimeStampAtTurnStart": time.Now().Unix(),
 			"WhiteTime":            mockGame.WhiteTime + (mockGame.Increment * 1000),
 			"Moves":                fmt.Sprintf("%s %s", mockGame.Moves, move),
+			"WhiteDrawStatus":      false,
+			"BlackDrawStatus":      false,
 		}
 
-		tx, err := db.BeginTx(context.Background(), nil)
-		assert.NoError(t, err)
-
-		mockGameRepo.
-			mockGameRepo.On("Get", context.Background(), tx, mockGame.ID).Return(&mockGame, nil).Once()
-		mockGameRepo.On("Update", context.Background(), tx, mockGame.ID, mockGame.Version, changes).Return(true, nil).Once()
+		mockGameRepo.On("Get", context.Background(), mockGame.ID).Return(mockGame, nil).Once()
+		mockGameRepo.On("Update",
+			context.Background(),
+			mockGame.ID,
+			mockGame.Version,
+			changes,
+		).
+			Return(true, nil).Once()
 
 		mock.ExpectBegin()
-		_, err = gameUseCase.UpdateOnMove(
+		_, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame.ID,
 			mockGame.WhiteID,
@@ -85,14 +89,21 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 
 		move := "d8h4"
 		changes := map[string]interface{}{
-			"History": "1. f4 e5 2. g4 Qh4#  0-1",
-			"Moves":   fmt.Sprintf("%s %s", mockGame2.Moves, move),
-			"Result":  chess.BlackWon.String(),
-			"Method":  chess.Checkmate.String(),
+			"History":         "1. f4 e5 2. g4 Qh4#  0-1",
+			"Moves":           fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			"Result":          chess.BlackWon.String(),
+			"Method":          chess.Checkmate.String(),
+			"WhiteDrawStatus": false,
+			"BlackDrawStatus": false,
 		}
 
-		mockGameRepo.On("Get", mockGame2.ID).Return(&mockGame2, nil).Once()
-		mockGameRepo.On("Update", mockGame2.ID, mockGame2.Version, changes).Return(true, nil).Once()
+		mockGameRepo.On("Get", context.Background(), mockGame2.ID).Return(mockGame2, nil).Once()
+		mockGameRepo.On("Update",
+			context.Background(),
+			mockGame2.ID,
+			mockGame2.Version,
+			changes,
+		).Return(true, nil).Once()
 
 		gameUseCase := NewGameUseCase(db, mockGameRepo, timerManager, func() {})
 
@@ -114,16 +125,18 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 
 		move := "e7f8"
 		changes := map[string]interface{}{
-			"History": "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8 10. Be2 Be7 11. Bf1 Bf8  1/2-1/2",
-			"Moves":   fmt.Sprintf("%s %s", mockGame2.Moves, move),
-			"Result":  chess.Draw.String(),
-			"Method":  chess.FivefoldRepetition.String(),
+			"History":         "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8 10. Be2 Be7 11. Bf1 Bf8  1/2-1/2",
+			"Moves":           fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			"Result":          chess.Draw.String(),
+			"Method":          chess.FivefoldRepetition.String(),
+			"WhiteDrawStatus": false,
+			"BlackDrawStatus": false,
 		}
 
-		mockGameRepo.On("Get", mockGame2.ID).
-			Return(&mockGame2, nil).
+		mockGameRepo.On("Get", context.Background(), mockGame2.ID).
+			Return(mockGame2, nil).
 			Once()
-		mockGameRepo.On("Update", mockGame2.ID, mockGame2.Version, changes).
+		mockGameRepo.On("Update", context.Background(), mockGame2.ID, mockGame2.Version, changes).
 			Return(true, nil).
 			Once()
 
@@ -139,7 +152,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 	})
 
 	t.Run("Failed on invalid move", func(t *testing.T) {
-		mockGameRepo.On("Get", mockGame.ID).Return(&mockGame, nil).Once()
+		mockGameRepo.On("Get", context.Background(), mockGame.ID).Return(mockGame, nil).Once()
 
 		_, err := gameUseCase.UpdateOnMove(
 			context.Background(),
@@ -153,7 +166,8 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 	})
 
 	t.Run("Failed on Get", func(t *testing.T) {
-		mockGameRepo.On("Get", mockGame.ID).Return(nil, errors.New("Unexpected")).Once()
+		mockGameRepo.On("Get", context.Background(), mockGame.ID).
+			Return(domain.Game{}, errors.New("Unexpected")).Once()
 
 		_, err := gameUseCase.UpdateOnMove(
 			context.Background(),
@@ -172,9 +186,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			"TimeStampAtTurnStart": time.Now().Unix(),
 			"WhiteTime":            mockGame.WhiteTime + (mockGame.Increment * 1000),
 			"Moves":                "e2e4 e7e5 g1f3 g8f6 d2d4",
+			"WhiteDrawStatus":      false,
+			"BlackDrawStatus":      false,
 		}
-		mockGameRepo.On("Get", mockGame.ID).Return(&mockGame, nil).Once()
-		mockGameRepo.On("Update", mockGame.ID, mockGame.Version, changes).Return(false, errors.New("Unexpected")).Once()
+		mockGameRepo.On("Get", context.Background(), mockGame.ID).Return(mockGame, nil).Once()
+		mockGameRepo.On("Update", context.Background(), mockGame.ID, mockGame.Version, changes).
+			Return(false, errors.New("Unexpected")).Once()
 
 		changes, err := gameUseCase.UpdateOnMove(context.Background(), mockGame.ID, mockGame.WhiteID, "d2d4")
 		assert.Error(t, err)
@@ -191,15 +208,20 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			"TimeStampAtTurnStart": time.Now().Unix(),
 			"WhiteTime":            mockGame.WhiteTime + (mockGame.Increment * 1000),
 			"Moves":                fmt.Sprintf("%s %s", mockGame.Moves, move),
+			"WhiteDrawStatus":      false,
+			"BlackDrawStatus":      false,
 		}
 
-		mockGameRepo.On("Get", mockGame.ID).Return(&mockGame, nil).Once()
-		mockGameRepo.On("Update", mockGame.ID, mockGame.Version, changes).Return(true, nil).Once()
-		mockGameRepo.On("Update", mockGame.ID, mockGame.Version+1,
+		mockGameRepo.On("Get", context.Background(), mockGame.ID).Return(mockGame, nil).Once()
+		mockGameRepo.On("Update", context.Background(), mockGame.ID, mockGame.Version, changes).
+			Return(true, nil).Once()
+		mockGameRepo.On("Update", context.Background(), mockGame.ID, mockGame.Version+1,
 			map[string]interface{}{
-				"Result":    "1-0",
-				"Method":    "Time out",
-				"BlackTime": 0,
+				"Result":          "1-0",
+				"Method":          "Time out",
+				"BlackTime":       0,
+				"WhiteDrawStatus": false,
+				"BlackDrawStatus": false,
 			},
 		).Return(true, nil).Once()
 
@@ -212,7 +234,13 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			func() { channel <- gameOverMsg },
 		)
 
-		changes, err := gameUseCase.UpdateOnMove(context.Background(), mockGame.ID, mockGame.WhiteID, move)
+		fmt.Printf("updating\n")
+		_, err := gameUseCase.UpdateOnMove(
+			context.Background(),
+			mockGame.ID,
+			mockGame.WhiteID,
+			move,
+		)
 		assert.NoError(t, err)
 
 		select {

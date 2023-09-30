@@ -26,9 +26,9 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 
 	gameID := 516
 
-	mockUseCase := new(mock_usecase_game.GameMockUseCase)
+	mockUseCase := new(mock_usecase_game.MockGameUseCase)
 
-	mockUseCase.On("Get", gameID).Return(&mockGame, nil).Once()
+	mockUseCase.On("Get", context.Background(), gameID).Return(mockGame, nil).Once()
 
 	gameIDStr := strconv.Itoa(gameID)
 

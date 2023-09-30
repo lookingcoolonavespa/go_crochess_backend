@@ -10,9 +10,10 @@ type GameseeksMockUseCase struct {
 	mock.Mock
 }
 
-func (c *GameseeksMockUseCase) OnAccept(ctx context.Context, g *domain.Game) (int64, error) {
+func (c *GameseeksMockUseCase) OnAccept(ctx context.Context, g domain.Game) (int, []int, error) {
 	args := c.Called(ctx, g)
-	res := args.Get(0)
+	id := args.Get(0)
+	deletedGameseeks := args.Get(1)
 
-	return res.(int64), args.Error(1)
+	return id.(int), deletedGameseeks.([]int), args.Error(2)
 }

@@ -2,6 +2,8 @@ package domain
 
 import (
 	"context"
+
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 )
 
 type Game struct {
@@ -38,6 +40,10 @@ type GameRepo interface {
 
 type GameUseCase interface {
 	Get(ctx context.Context, id int) (Game, error)
-	Start(context.Context, Game) (gameID int, err error)
-	UpdateOnMove(ctx context.Context, gameID int, playerID string, move string) error
+	UpdateOnMove(
+		ctx context.Context,
+		gameID int,
+		playerID string,
+		move string,
+	) (utils.Changes, error)
 }

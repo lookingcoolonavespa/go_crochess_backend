@@ -20,7 +20,7 @@ const (
 )
 
 type GameseeksHandler struct {
-	topic   *domain_websocket.TopicWithoutParm
+	topic   domain_websocket.TopicWithoutParm
 	usecase domain.GameseeksUseCase
 	repo    domain.GameseeksRepo
 }
@@ -34,9 +34,9 @@ func NewGameseeksHandler(
 	repo domain.GameseeksRepo,
 	usecase domain.GameseeksUseCase,
 	topic domain_websocket.Topic,
-) *GameseeksHandler {
-	handler := &GameseeksHandler{
-		topic.(*domain_websocket.TopicWithoutParm),
+) GameseeksHandler {
+	handler := GameseeksHandler{
+		topic.(domain_websocket.TopicWithoutParm),
 		usecase,
 		repo,
 	}
@@ -65,12 +65,12 @@ func (g GameseeksHandler) HandlerGetGameseeksList(ctx context.Context, _ domain_
 }
 
 func (g GameseeksHandler) HandleGameseekInsert(ctx context.Context, room domain_websocket.Room, _ domain_websocket.Client, jsonGameseek []byte) error {
-	var param domain.Gameseek
-	if err := json.Unmarshal(jsonGameseek, &param); err != nil {
+	var gs domain.Gameseek
+	if err := json.Unmarshal(jsonGameseek, &gs); err != nil {
 		return errors.New(fmt.Sprintf("Failed to decode request body: %v", err))
 	}
 
-	err := g.repo.Insert(ctx, &param)
+	err := g.repo.Insert(ctx, gs)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to save game seek: %v", err))
 	}
@@ -92,7 +92,7 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 		return err
 	}
 
-	gameID, err := g.usecase.OnAccept(ctx, &game)
+	gameID, deletedGameseeks, err := g.usecase.OnAccept(ctx, game)
 	if err != nil {
 		return err
 	}
@@ -115,6 +115,15 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 	blackClient, ok := g.topic.GetClient(blackID)
 	if !ok {
 		return errors.New("")
+	}
+
+	jsonDeletedGameseeks, err := domain_websocket.NewOutboundMessage(
+		topicName,
+		"deletion",
+		deletedGameseeks).
+		ToJSON()
+	if err != nil {
+		return err
 	}
 
 	jsonDataWhite, err := domain_websocket.NewOutboundMessage(
@@ -143,6 +152,8 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 
 	whiteClient.Send(jsonDataWhite)
 	blackClient.Send(jsonDataBlack)
+
+	room.BroadcastMessage(jsonDeletedGameseeks)
 
 	return nil
 }

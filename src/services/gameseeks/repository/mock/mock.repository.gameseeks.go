@@ -18,7 +18,7 @@ func (c *GameseeksMockRepo) List(ctx context.Context) ([]domain.Gameseek, error)
 	return result.([]domain.Gameseek), args.Error(1)
 }
 
-func (c *GameseeksMockRepo) Insert(ctx context.Context, g *domain.Gameseek) error {
+func (c *GameseeksMockRepo) Insert(ctx context.Context, g domain.Gameseek) error {
 	args := c.Called(ctx, g)
 
 	return args.Error(0)

@@ -156,6 +156,7 @@ func (c gameRepo) Update(
 	version int,
 	changes utils.Changes,
 ) (updated bool, err error) {
+	fmt.Printf("%v\n", changes)
 	var game domain.Game
 	var updateStr string
 	gType := reflect.TypeOf(game)
@@ -179,10 +180,8 @@ func (c gameRepo) Update(
     SET 
         version = $1,
         %s
-    WHERE
-        id = $2
-    AND
-        version = $3
+    WHERE id = $2
+    AND version = $3
     `,
 		updateStr,
 	)

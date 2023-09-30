@@ -21,5 +21,5 @@ type GameseeksRepo interface {
 }
 
 type GameseeksUseCase interface {
-	OnAccept(ctx context.Context, g Game) (int, error)
+	OnAccept(ctx context.Context, g Game) (gameID int, deletedGameseeks []int, err error)
 }

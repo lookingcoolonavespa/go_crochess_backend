@@ -83,7 +83,7 @@ func makeMove(
 		changes["Method"] = gameState.Method().String()
 
 	} else {
-		if elgibleDraw := len(gameState.EligibleDraws()) > 0; elgibleDraw {
+		if elgibleDraw := len(gameState.EligibleDraws()) > 1; elgibleDraw {
 			changes["WhiteDrawStatus"] = true
 			changes["BlackDrawStatus"] = true
 		}
@@ -114,7 +114,7 @@ func makeMove(
 	gameState.ChangeNotation(chess.AlgebraicNotation{})
 	changes["History"] = strings.TrimLeft(gameState.String(), "\n")
 
-	return changes, activeColor, nil
+	return changes, activeColor.Other(), nil
 }
 
 func (c gameUseCase) handleTimer(
@@ -129,6 +129,10 @@ func (c gameUseCase) handleTimer(
 	} else {
 		c.timerManager.StartTimer(fmt.Sprint(gameID), duration, func() {
 			changes := make(map[string]interface{})
+			changes["Method"] = "Time out"
+			changes["WhiteDrawStatus"] = false
+			changes["BlackDrawStatus"] = false
+
 			if activeColor == chess.White {
 				changes["WhiteTime"] = 0
 				changes["Result"] = chess.BlackWon.String()
@@ -136,9 +140,11 @@ func (c gameUseCase) handleTimer(
 				changes["BlackTime"] = 0
 				changes["Result"] = chess.WhiteWon.String()
 			}
-			changes["Method"] = "Time out"
-			c.gameRepo.Update(ctx, gameID, version, changes)
-			c.onTimeOut()
+
+			updated, err := c.gameRepo.Update(ctx, gameID, version, changes)
+			if updated && err == nil {
+				c.onTimeOut()
+			}
 		})
 	}
 }
@@ -178,7 +184,7 @@ func (c gameUseCase) UpdateOnMove(
 	} else {
 		timerDuration = intToMillisecondsDuration(g.BlackTime)
 	}
-	c.handleTimer(ctx, gameID, g.Version+1, timerDuration, activeColor, gameOver)
+	c.handleTimer(context.Background(), gameID, g.Version+1, timerDuration, activeColor, gameOver)
 
 	return changes, nil
 }

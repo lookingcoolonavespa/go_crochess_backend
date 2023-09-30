@@ -8,10 +8,10 @@ import (
 	"github.com/bxcodec/faker"
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/repository/mock"
+	mock_usecase_gameseeks "github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/usecase/mock"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 	domain_websocket_mock "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket/mock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
@@ -21,7 +21,7 @@ func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
 	assert.NoError(t, err)
 
 	mockRepo := new(repository_gameseeks_mock.GameseeksMockRepo)
-	mockUseCase := new(rep)
+	mockUseCase := new(mock_usecase_gameseeks.GameseeksMockUseCase)
 
 	mockGameseeks := make([]domain.Gameseek, 0)
 	mockGameseeks = append(mockGameseeks, mockGameseek)
@@ -30,7 +30,7 @@ func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
 
 	topic, err := domain_websocket.NewTopic("topic")
 	assert.NoError(t, err)
-	r := NewGameseeksHandler(mockRepo, topic, nil)
+	r := NewGameseeksHandler(mockRepo, mockUseCase, topic)
 
 	client := domain_websocket.NewClient(0, nil, nil)
 
@@ -47,13 +47,14 @@ func TestGameseeksHandler_HandlerInsertGameseek(t *testing.T) {
 	assert.NoError(t, err)
 
 	mockRepo := new(repository_gameseeks_mock.GameseeksMockRepo)
+	mockUseCase := new(mock_usecase_gameseeks.GameseeksMockUseCase)
 
-	mockRepo.On("Insert", context.Background(), mock.AnythingOfType("*domain.Gameseek")).Return(nil).Once()
+	mockRepo.On("Insert", context.Background(), mockGameseek).Return(nil).Once()
 
 	topic, err := domain_websocket.NewTopic("topic")
 	assert.NoError(t, err)
 
-	r := NewGameseeksHandler(mockRepo, topic, nil)
+	r := NewGameseeksHandler(mockRepo, mockUseCase, topic)
 
 	jsonData, err := json.Marshal(mockGameseek)
 	assert.NoError(t, err)
