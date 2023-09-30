@@ -11,14 +11,16 @@ func TestTimerManager_StartTimer(t *testing.T) {
 	timerManager := NewTimerManager()
 
 	t.Run("Callback runs when timer ends", func(t *testing.T) {
-		timerID := "1"
+		timerID := 1
 		duration, err := time.ParseDuration("1s")
 		assert.NoError(t, err)
 
 		successMsg := "callback fired"
 		channel := make(chan string)
 		timerManager.StartTimer(timerID, duration, func() {
-			channel <- successMsg
+			go func() {
+				channel <- successMsg
+			}()
 		})
 
 		select {
@@ -32,14 +34,16 @@ func TestTimerManager_DeleteTimer(t *testing.T) {
 	timerManager := NewTimerManager()
 
 	t.Run("Success", func(t *testing.T) {
-		timerID := "1"
+		timerID := 1
 		duration, err := time.ParseDuration("1s")
 		assert.NoError(t, err)
 
 		successMsg := "callback fired"
 		channel := make(chan string)
 		timerManager.StartTimer(timerID, duration, func() {
-			channel <- successMsg
+			go func() {
+				channel <- successMsg
+			}()
 		})
 
 		err = timerManager.StopAndDeleteTimer(timerID)
@@ -47,7 +51,11 @@ func TestTimerManager_DeleteTimer(t *testing.T) {
 
 		failedMsg := "callback never fired"
 
-		time.AfterFunc(duration*2, func() { channel <- failedMsg })
+		time.AfterFunc(duration*2, func() {
+			go func() {
+				channel <- failedMsg
+			}()
+		})
 
 		select {
 		case msg := <-channel:
@@ -56,13 +64,13 @@ func TestTimerManager_DeleteTimer(t *testing.T) {
 	})
 
 	t.Run("Failed", func(t *testing.T) {
-		timerID := "1"
+		timerID := 1
 		duration, err := time.ParseDuration("1s")
 		assert.NoError(t, err)
 
 		timerManager.StartTimer(timerID, duration, func() {})
 
-		err = timerManager.StopAndDeleteTimer("2")
+		err = timerManager.StopAndDeleteTimer(2)
 		assert.Error(t, err)
 	})
 }

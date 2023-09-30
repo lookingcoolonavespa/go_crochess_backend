@@ -2,26 +2,38 @@ package domain_websocket
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 )
 
-type TopicWithParm struct {
+type TopicWithParam struct {
+	name      string
 	matcher   *regexp.Regexp
 	findParam func(bytes []byte) string
-	rooms     map[string]Room
+	rooms     map[string]*Room
 	events    map[string]TopicEventHandler
 }
 
-func (tp TopicWithParm) match(bytes []byte) bool {
+func (tp TopicWithParam) match(bytes []byte) bool {
 	return tp.matcher.Match(bytes)
 }
 
-func (tp TopicWithParm) HandleWSMessage(ctx context.Context, client Client, event string, payload []byte, topicName []byte) error {
+func (tp TopicWithParam) HandleWSMessage(
+	ctx context.Context,
+	client Client,
+	event string,
+	payload []byte,
+	topicName []byte,
+) error {
 	handleFunc, ok := tp.events[event]
 	if !ok {
-		return errors.New(fmt.Sprintf("%s is not a registered event", event))
+		err := client.SendError(
+			tp.name,
+			fmt.Sprintf("%s is not a registered event", event),
+			"TopicWithParam/HandleWSMessage: error transforming error message to json\nerr: %v",
+		)
+		return err
+
 	}
 
 	param := tp.findParam(topicName)
@@ -35,22 +47,24 @@ func (tp TopicWithParm) HandleWSMessage(ctx context.Context, client Client, even
 	}
 
 	if event != SubscribeEvent && !ok {
-		return errors.New(fmt.Sprintf(`could not find a room for param "%s"`, param))
+		err := client.SendError(
+			tp.name,
+			fmt.Sprintf(`you are not subscribed to "%s/%s"`, tp.name, param),
+			"TopicWithParam/HandleWSMessage: error transforming error message to json\nerr: %v",
+		)
+		return err
 	}
 
 	internalErr := handleFunc(ctx, room, client, payload)
-	if internalErr != nil {
-		return errors.New("Something went wrong.")
-	}
+	return internalErr
 
-	return nil
 }
 
-func (tp TopicWithParm) RegisterEvent(event string, handleFunc TopicEventHandler) {
+func (tp TopicWithParam) RegisterEvent(event string, handleFunc TopicEventHandler) {
 	tp.events[event] = handleFunc
 }
 
-func (tp TopicWithParm) PushNewRoom(param string, clients []Client) Room {
+func (tp TopicWithParam) PushNewRoom(param string, clients []Client) *Room {
 	room := NewRoom(clients, param)
 	tp.rooms[param] = room
 	return room

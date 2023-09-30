@@ -30,7 +30,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 	db, mock := initMock()
 
 	mockGameRepo := new(repository_game_mock.GameMockRepo)
-	timerManager := new(domain_timerManager.TimerManager)
+	timerManager := domain_timerManager.NewTimerManager()
 	gameUseCase := NewGameUseCase(db, mockGameRepo, timerManager, func() {})
 
 	mockGame := domain.Game{
@@ -89,12 +89,14 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 
 		move := "d8h4"
 		changes := map[string]interface{}{
-			"History":         "1. f4 e5 2. g4 Qh4#  0-1",
-			"Moves":           fmt.Sprintf("%s %s", mockGame2.Moves, move),
-			"Result":          chess.BlackWon.String(),
-			"Method":          chess.Checkmate.String(),
-			"WhiteDrawStatus": false,
-			"BlackDrawStatus": false,
+			"History":              "1. f4 e5 2. g4 Qh4#  0-1",
+			"Moves":                fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			"TimeStampAtTurnStart": time.Now().Unix(),
+			"BlackTime":            mockGame.BlackTime + (mockGame.Increment * 1000),
+			"Result":               chess.BlackWon.String(),
+			"Method":               chess.Checkmate.String(),
+			"WhiteDrawStatus":      false,
+			"BlackDrawStatus":      false,
 		}
 
 		mockGameRepo.On("Get", context.Background(), mockGame2.ID).Return(mockGame2, nil).Once()
@@ -125,12 +127,47 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 
 		move := "e7f8"
 		changes := map[string]interface{}{
-			"History":         "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8 10. Be2 Be7 11. Bf1 Bf8  1/2-1/2",
-			"Moves":           fmt.Sprintf("%s %s", mockGame2.Moves, move),
-			"Result":          chess.Draw.String(),
-			"Method":          chess.FivefoldRepetition.String(),
-			"WhiteDrawStatus": false,
-			"BlackDrawStatus": false,
+			"History":              "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8 10. Be2 Be7 11. Bf1 Bf8  1/2-1/2",
+			"Moves":                fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			"TimeStampAtTurnStart": time.Now().Unix(),
+			"BlackTime":            mockGame.BlackTime + (mockGame.Increment * 1000),
+			"Result":               chess.Draw.String(),
+			"Method":               chess.FivefoldRepetition.String(),
+			"WhiteDrawStatus":      false,
+			"BlackDrawStatus":      false,
+		}
+
+		mockGameRepo.On("Get", context.Background(), mockGame2.ID).
+			Return(mockGame2, nil).
+			Once()
+		mockGameRepo.On("Update", context.Background(), mockGame2.ID, mockGame2.Version, changes).
+			Return(true, nil).
+			Once()
+
+		_, err := gameUseCase.UpdateOnMove(
+			context.Background(),
+			mockGame2.ID,
+			mockGame2.BlackID,
+			move,
+		)
+		assert.NoError(t, err)
+
+		mockGameRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success on threefold repetition", func(t *testing.T) {
+		mockGame2 := mockGame
+		mockGame2.Moves = "e2e4 e7e5 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1"
+		mockGame2.History = "1. e2e4 e7e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 *"
+
+		move := "e7f8"
+		changes := map[string]interface{}{
+			"History":              "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8  *",
+			"Moves":                fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			"TimeStampAtTurnStart": time.Now().Unix(),
+			"BlackTime":            mockGame.BlackTime + (mockGame.Increment * 1000),
+			"WhiteDrawStatus":      true,
+			"BlackDrawStatus":      true,
 		}
 
 		mockGameRepo.On("Get", context.Background(), mockGame2.ID).

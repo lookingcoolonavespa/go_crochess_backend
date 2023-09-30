@@ -71,7 +71,7 @@ func initHandlers() {
 		log.Printf("error instantiating web socket router: %v", err)
 		return
 	}
-	webSocketServer := domain_websocket.NewWebSocketServer(*webSocketRouter)
+	webSocketServer := domain_websocket.NewWebSocketServer(webSocketRouter)
 	http.HandleFunc("/ws", webSocketServer.HandleWS)
 
 	srv := &http.Server{

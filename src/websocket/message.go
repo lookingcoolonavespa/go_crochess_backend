@@ -14,15 +14,15 @@ type OutboundMessage struct {
 	payload interface{}
 }
 
-func NewOutboundMessage(topic string, event string, payload interface{}) *OutboundMessage {
-	return &OutboundMessage{
+func NewOutboundMessage(topic string, event string, payload interface{}) OutboundMessage {
+	return OutboundMessage{
 		topic,
 		event,
 		payload,
 	}
 }
 
-func (m *OutboundMessage) ToJSON() ([]byte, error) {
+func (m OutboundMessage) ToJSON() ([]byte, error) {
 	jsonData, err := json.Marshal(m)
 	if err != nil {
 		return nil, err

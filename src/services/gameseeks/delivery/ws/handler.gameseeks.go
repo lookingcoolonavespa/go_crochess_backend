@@ -47,7 +47,7 @@ func NewGameseeksHandler(
 	return handler
 }
 
-func (g GameseeksHandler) HandlerGetGameseeksList(ctx context.Context, _ domain_websocket.Room, client domain_websocket.Client, _ []byte) error {
+func (g GameseeksHandler) HandlerGetGameseeksList(ctx context.Context, _ *domain_websocket.Room, client domain_websocket.Client, _ []byte) error {
 	list, err := g.repo.List(ctx)
 	if err != nil {
 		log.Printf("%s : %v", "GameseeksHandler/HandlerGetGameseeksList/List/ShouldFindList", err)
@@ -64,7 +64,7 @@ func (g GameseeksHandler) HandlerGetGameseeksList(ctx context.Context, _ domain_
 	return nil
 }
 
-func (g GameseeksHandler) HandleGameseekInsert(ctx context.Context, room domain_websocket.Room, _ domain_websocket.Client, jsonGameseek []byte) error {
+func (g GameseeksHandler) HandleGameseekInsert(ctx context.Context, room *domain_websocket.Room, _ domain_websocket.Client, jsonGameseek []byte) error {
 	var gs domain.Gameseek
 	if err := json.Unmarshal(jsonGameseek, &gs); err != nil {
 		return errors.New(fmt.Sprintf("Failed to decode request body: %v", err))
@@ -82,7 +82,7 @@ func (g GameseeksHandler) HandleGameseekInsert(ctx context.Context, room domain_
 
 func (g GameseeksHandler) HandlerAcceptGameseek(
 	ctx context.Context,
-	room domain_websocket.Room,
+	room *domain_websocket.Room,
 	client domain_websocket.Client,
 	payload []byte,
 ) error {

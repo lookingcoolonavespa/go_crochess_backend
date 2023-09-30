@@ -19,6 +19,7 @@ type Client interface {
 	Send([]byte)
 	ReadPump(context.Context)
 	WritePump(context.Context)
+	SendError(topic string, errorMsg string, logMsg string) error
 }
 
 type client struct {
@@ -37,15 +38,32 @@ func NewClient(id int, conn *websocket.Conn, wsServer *WebSocketServer) Client {
 	}
 }
 
-func (c *client) GetID() int {
+func (c client) GetID() int {
 	return c.id
 }
 
-func (c *client) Send(message []byte) {
+func (c client) Send(message []byte) {
 	c.send <- message
 }
 
-func (c *client) handleClose(ctx context.Context, err error) {
+func (c client) SendError(topic string, errorMsg string, logMsg string) error {
+	errorMSG, err := NewOutboundMessage(
+		topic,
+		ErrorEvent,
+		errorMsg,
+	).ToJSON()
+
+	if err != nil {
+		log.Printf(logMsg, err)
+		return err
+	} else {
+		go c.Send(errorMSG)
+		return nil
+	}
+
+}
+
+func (c client) handleClose(ctx context.Context, err error) {
 	if err == nil {
 		return
 	}
@@ -73,7 +91,7 @@ func (c *client) handleClose(ctx context.Context, err error) {
 	}
 }
 
-func (c *client) ReadPump(
+func (c client) ReadPump(
 	ctx context.Context,
 ) {
 	for {
@@ -96,7 +114,7 @@ func (c *client) ReadPump(
 	}
 }
 
-func (c *client) WritePump(ctx context.Context) {
+func (c client) WritePump(ctx context.Context) {
 	pingTimer := time.NewTicker(PingPeriod)
 	defer func() {
 		pingTimer.Stop()

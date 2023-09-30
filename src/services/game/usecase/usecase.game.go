@@ -88,22 +88,23 @@ func makeMove(
 			changes["BlackDrawStatus"] = true
 		}
 
-		timeSpent := time.Now().Unix() - g.TimeStampAtTurnStart
-
-		var activeTime int
-		var fieldOfActiveTime string
-		if activeColor == chess.White {
-			activeTime = g.WhiteTime
-			fieldOfActiveTime = "WhiteTime"
-		} else {
-			activeTime = g.BlackTime
-			fieldOfActiveTime = "BlackTime"
-		}
-
-		base := activeTime - int(timeSpent)
-		changes[fieldOfActiveTime] = base + (g.Increment * 1000)
-		changes["TimeStampAtTurnStart"] = time.Now().Unix()
 	}
+
+	timeSpent := time.Now().Unix() - g.TimeStampAtTurnStart
+
+	var activeTime int
+	var fieldOfActiveTime string
+	if activeColor == chess.White {
+		activeTime = g.WhiteTime
+		fieldOfActiveTime = "WhiteTime"
+	} else {
+		activeTime = g.BlackTime
+		fieldOfActiveTime = "BlackTime"
+	}
+
+	base := activeTime - int(timeSpent)
+	changes[fieldOfActiveTime] = base + (g.Increment * 1000)
+	changes["TimeStampAtTurnStart"] = time.Now().Unix()
 
 	if len(g.Moves) > 0 {
 		changes["Moves"] = g.Moves + fmt.Sprintf(" %s", move)
@@ -125,9 +126,9 @@ func (c gameUseCase) handleTimer(
 	gameOver bool,
 ) {
 	if gameOver {
-		c.timerManager.StopAndDeleteTimer(fmt.Sprint(gameID))
+		c.timerManager.StopAndDeleteTimer(gameID)
 	} else {
-		c.timerManager.StartTimer(fmt.Sprint(gameID), duration, func() {
+		c.timerManager.StartTimer(gameID, duration, func() {
 			changes := make(map[string]interface{})
 			changes["Method"] = "Time out"
 			changes["WhiteDrawStatus"] = false

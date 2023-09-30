@@ -2,7 +2,6 @@ package delivery_ws_game
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"testing"
@@ -21,9 +20,6 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 	err := faker.FakeData(&mockGame)
 	assert.NoError(t, err)
 
-	gameAsJson, err := json.Marshal(mockGame)
-	assert.NoError(t, err)
-
 	gameID := 516
 
 	mockUseCase := new(mock_usecase_game.MockGameUseCase)
@@ -35,7 +31,7 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 	topic, err := domain_websocket.NewTopic(fmt.Sprintf("game/%s", gameIDStr))
 	assert.NoError(t, err)
 
-	h := NewGameHandler(topic.(domain_websocket.TopicWithParm), mockUseCase)
+	h := NewGameHandler(topic.(domain_websocket.TopicWithParam), mockUseCase)
 
 	testChan := make(chan []byte)
 	mockClient := domain_websocket_mock.NewMockClient(testChan)
@@ -43,8 +39,11 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 	mockRoom := domain_websocket.NewRoom([]domain_websocket.Client{mockClient}, gameIDStr)
 
 	err = h.HandlerGetGame(context.Background(), mockRoom, mockClient, make([]byte, 0))
-	message := <-testChan
 	assert.NoError(t, err)
 
-	assert.Equal(t, message, gameAsJson)
+	select {
+	case message := <-testChan:
+		assert.Contains(t, string(message), gameIDStr)
+		assert.Contains(t, string(message), domain_websocket.InitEvent)
+	}
 }

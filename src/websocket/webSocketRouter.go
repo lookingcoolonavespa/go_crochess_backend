@@ -2,7 +2,6 @@ package domain_websocket
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 )
@@ -57,35 +56,50 @@ func (r *WebSocketRouter) PushNewRoute(topic Topic) {
 func (r WebSocketRouter) HandleWSMessage(ctx context.Context, client Client, message []byte) error {
 	topicBytes := r.topicRegex.FindSubmatch(message)
 	if len(topicBytes) != 2 {
-		return errors.New("message is not in the correct format: missing topic field")
+		err := client.SendError(
+			"*",
+			"message is not in the correct format: missing topic field",
+			"WebSocketRouter/HandleWSMessage: error transforming error message to json\nerr: %v",
+		)
+		return err
 	}
 
 	for _, topic := range r.topics {
 		if topic.match(topicBytes[1]) {
 			eventBytes := r.eventRegex.FindSubmatch(message)
 			if len(eventBytes) != 2 {
-				return errors.New("message is not in the correct format: missing event field")
+				err := client.SendError(
+					"*",
+					"message is not in the correct format: missing event field",
+					"WebSocketRouter/HandleWSMessage: error transforming error message to json\nerr: %v",
+				)
+				return err
 			}
 			payloadBytes := r.payloadRegex.FindSubmatch(message)
 			if len(payloadBytes) != 2 {
-				return errors.New("message is not in the correct format: missing payload field")
+				err := client.SendError(
+					"*",
+					"message is not in the correct format: missing payload field",
+					"WebSocketRouter/HandleWSMessage: error transforming error message to json\nerr: %v",
+				)
+				return err
 			}
 
-			err := topic.HandleWSMessage(
+			internalErr := topic.HandleWSMessage(
 				ctx,
 				client,
 				string(eventBytes[1]),
 				payloadBytes[1],
 				topicBytes[1],
 			)
-			if err != nil {
-				return err
-			}
-			return nil
+			return internalErr
 		}
 	}
 
-	errMsg := fmt.Sprintf(`you are not subscribed to "%s"`, string(topicBytes[1]))
-	// // client.send <- []byte(errMsg)
-	return errors.New(errMsg)
+	err := client.SendError(
+		"*",
+		fmt.Sprintf(`"%s" is not a valid topic`, string(topicBytes[1])),
+		"WebSocketRouter/HandleWSMessage: error transforming error message to json\nerr: %v",
+	)
+	return err
 }

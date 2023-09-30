@@ -34,7 +34,7 @@ func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
 
 	client := domain_websocket.NewClient(0, nil, nil)
 
-	err = r.HandlerGetGameseeksList(context.Background(), domain_websocket.Room{}, client, nil)
+	err = r.HandlerGetGameseeksList(context.Background(), nil, client, nil)
 	assert.NoError(t, err)
 
 	mockRepo.AssertExpectations(t)

@@ -8,40 +8,47 @@ import (
 )
 
 type TimerManager struct {
-	timers  sync.Map
-	mutexes map[string]*sync.Mutex
+	timers map[int]*time.Timer
+	mutex  sync.Mutex
 }
 
-func NewTimerManager() TimerManager {
-	return TimerManager{
-		timers:  sync.Map{},
-		mutexes: make(map[string]*sync.Mutex),
+func NewTimerManager() *TimerManager {
+	return &TimerManager{
+		make(map[int]*time.Timer),
+		sync.Mutex{},
 	}
 }
 
-func (t *TimerManager) StartTimer(timerID string, duration time.Duration, callback func()) {
+func (t *TimerManager) StartTimer(timerID int, duration time.Duration, callback func()) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	existingTimer, exists := t.timers[timerID]
+	if exists {
+		existingTimer.Stop()
+	}
+
 	newTimer := time.AfterFunc(duration, func() {
-		if timer, exists := t.timers.LoadAndDelete(timerID); exists {
+		if timer, exists := t.timers[timerID]; exists {
 			callback()
-			newTimer := timer.(*time.Timer)
-			newTimer.Stop()
+			timer.Stop()
 		}
 	},
 	)
 
-	existingTimer, exists := t.timers.Swap(timerID, newTimer)
-	if exists {
-		timer := existingTimer.(*time.Timer)
-		timer.Stop()
-	}
+	t.timers[timerID] = newTimer
 }
 
-func (t *TimerManager) StopAndDeleteTimer(timerID string) error {
-	timer, exists := t.timers.LoadAndDelete(timerID)
+func (t *TimerManager) StopAndDeleteTimer(timerID int) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	timer, exists := t.timers[timerID]
 	if exists {
-		timer.(*time.Timer).Stop()
+		timer.Stop()
+		delete(t.timers, timerID)
 		return nil
 	} else {
-		return errors.New(fmt.Sprintf("There was no timer at %s.", timerID))
+		return errors.New(fmt.Sprintf("There was no timer at %d.", timerID))
 	}
 }

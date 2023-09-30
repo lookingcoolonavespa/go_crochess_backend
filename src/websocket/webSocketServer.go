@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"nhooyr.io/websocket"
@@ -17,15 +18,16 @@ const (
 var clientID = 0
 
 type WebSocketServer struct {
-	Conns      map[int]Client
+	Conns      map[Client]bool
 	register   chan Client
 	unregister chan Client
 	router     WebSocketRouter
+	mutex      sync.Mutex
 }
 
-func NewWebSocketServer(r WebSocketRouter) *WebSocketServer {
-	return &WebSocketServer{
-		Conns:      make(map[int]Client),
+func NewWebSocketServer(r WebSocketRouter) WebSocketServer {
+	return WebSocketServer{
+		Conns:      make(map[Client]bool),
 		register:   make(chan Client),
 		unregister: make(chan Client),
 		router:     r,
@@ -73,11 +75,15 @@ func (s *WebSocketServer) HandleWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *WebSocketServer) registerClient(client Client) {
-	s.Conns[client.GetID()] = client
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.Conns[client] = true
 }
 
 func (s *WebSocketServer) unregisterClient(client Client) {
-	if _, ok := s.Conns[client.GetID()]; ok {
-		delete(s.Conns, client.GetID())
+	if _, ok := s.Conns[client]; ok {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+		delete(s.Conns, client)
 	}
 }

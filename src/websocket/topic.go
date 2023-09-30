@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-type TopicEventHandler = func(context.Context, Room, Client, []byte) error
+type TopicEventHandler = func(context.Context, *Room, Client, []byte) error
 
 type Topic interface {
 	HandleWSMessage(
@@ -38,18 +38,20 @@ func NewTopic(
 
 	patternSplit := strings.Split(pattern, "/")
 	topic := patternSplit[0]
-	topicRE, err := regexp.Compile(fmt.Sprintf("^%s+(\\/[a-zA-Z0-9_]+)?$", topic))
-	if err != nil {
-		return nil, err
-	}
 
-	paramRE, err := regexp.Compile("\\/\\w+$")
-	if err != nil {
-		return nil, err
-	}
-
+	var topicRE *regexp.Regexp
 	var paramMatcher func(bytes []byte) string
 	if len(patternSplit) > 1 {
+		topicRE, err = regexp.Compile(fmt.Sprintf("^%s+(\\/[a-zA-Z0-9_]+)?$", topic))
+		if err != nil {
+			return nil, err
+		}
+
+		paramRE, err := regexp.Compile("\\/\\w+$")
+		if err != nil {
+			return nil, err
+		}
+
 		paramMatcher = func(bytes []byte) string {
 			base := topicRE.Find(bytes)
 			if len(base) == 0 {
@@ -57,18 +59,25 @@ func NewTopic(
 			}
 			return string(paramRE.Find(base))[1:]
 		}
+	} else {
+		topicRE, err = regexp.Compile(fmt.Sprintf("^%s$", topic))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if len(patternSplit) > 1 {
-		return TopicWithParm{
+		return TopicWithParam{
+				name:      topic,
 				matcher:   topicRE,
 				findParam: paramMatcher,
-				rooms:     make(map[string]Room),
+				rooms:     make(map[string]*Room),
 				events:    make(map[string]TopicEventHandler),
 			},
 			nil
 	} else {
 		return TopicWithoutParm{
+				name:    topic,
 				matcher: topicRE,
 				room:    NewRoom(make([]Client, 0), ""),
 				events:  make(map[string]TopicEventHandler),

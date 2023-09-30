@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	domain_websocket_mock "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket/mock"
+	"github.com/stretchr/testify/assert"
 )
 
 type mockMessage struct {
@@ -20,42 +21,41 @@ type testPayload struct {
 }
 
 const (
-	testEvent = "run test"
 	testTopic = "topic"
 )
 
-func setupWebSocketRouter(t *testing.T, expected string) (WebSocketRouter, error) {
+func setupWebSocketRouter(t *testing.T, expected string) (WebSocketRouter, chan string, error) {
 	r, err := NewWebSocketRouter()
-	if err != nil {
-		return WebSocketRouter{}, err
-	}
+	assert.NoError(t, err)
 
 	topic, err := NewTopic(testTopic)
-	if err != nil {
-		return WebSocketRouter{}, err
-	}
+	assert.NoError(t, err)
 
 	payloadRegex, err := jsonRegex("payload")
-	if err != nil {
-		return WebSocketRouter{}, err
-	}
+	assert.NoError(t, err)
+
 	expectedPayload := payloadRegex.FindStringSubmatch(expected)
 	if len(expectedPayload) != 2 {
-		return WebSocketRouter{}, errors.New("payload field is missing in expected")
+		return WebSocketRouter{}, nil, errors.New("payload field is missing in expected")
 	}
 
-	mockHandleFunc := func(ctx context.Context, room Room, client Client, payload []byte) error {
+	successChan := make(chan string)
+	successStr := "success"
+	mockHandleFunc := func(ctx context.Context, room *Room, client Client, payload []byte) error {
 		if string(payload) != expectedPayload[1] {
 			return errors.New(fmt.Sprintf("expected payload: %v\nreceived payload: %v", expectedPayload[1], (payload)))
 		}
+		go func() {
+			successChan <- successStr
+		}()
 		return nil
 	}
 
-	topic.RegisterEvent(testEvent, mockHandleFunc)
+	topic.RegisterEvent(SubscribeEvent, mockHandleFunc)
 
 	r.PushNewRoute(topic)
 
-	return r, nil
+	return r, successChan, nil
 }
 
 func TestWebSocketRouter_HandleWSMessage(t *testing.T) {
@@ -70,7 +70,7 @@ func TestWebSocketRouter_HandleWSMessage(t *testing.T) {
             "event": "%s",
             "payload": "test ran successfully"}`,
 				testTopic,
-				testEvent,
+				SubscribeEvent,
 			),
 			shouldErr: false,
 		},
@@ -87,7 +87,7 @@ func TestWebSocketRouter_HandleWSMessage(t *testing.T) {
 			expected: fmt.Sprintf(`{
             "event": "%s",
             "payload": "test ran successfully"}`,
-				testEvent,
+				SubscribeEvent,
 			),
 			shouldErr: true,
 		},
@@ -97,21 +97,29 @@ func TestWebSocketRouter_HandleWSMessage(t *testing.T) {
 		t.Run(
 			tt.name,
 			func(t *testing.T) {
-				r, err := setupWebSocketRouter(t, tt.expected)
+				r, successChan, err := setupWebSocketRouter(t, tt.expected)
 
 				if err != nil {
 					t.Errorf("error setting up WebSocketRouter: %v", err)
 				}
 
-				err = r.HandleWSMessage(
+				errChan := make(chan []byte)
+
+				r.HandleWSMessage(
 					context.Background(),
-					domain_websocket_mock.NewMockClient(make(chan []byte)),
+					domain_websocket_mock.NewMockClient(errChan),
 					[]byte(tt.expected),
 				)
-				if err != nil && !tt.shouldErr {
-					t.Errorf("error running HandleWSMessage: %v", err)
-				} else if err == nil && tt.shouldErr {
-					t.Errorf("HandleWSMessage should err")
+
+				select {
+				case err := <-errChan:
+					if !tt.shouldErr {
+						t.Errorf("error running HandleWSMessage: %v", string(err))
+					}
+				case <-successChan:
+					if tt.shouldErr {
+						t.Errorf("HandleWSMessage should err")
+					}
 				}
 			},
 		)

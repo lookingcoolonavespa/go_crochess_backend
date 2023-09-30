@@ -2,7 +2,7 @@ package delivery_ws_game
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 
@@ -10,13 +10,15 @@ import (
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 )
 
+const baseTopicName = "game"
+
 type GameHandler struct {
-	topic   domain_websocket.TopicWithParm
+	topic   domain_websocket.TopicWithParam
 	usecase domain.GameUseCase
 }
 
 func NewGameHandler(
-	topic domain_websocket.TopicWithParm,
+	topic domain_websocket.TopicWithParam,
 	usecase domain.GameUseCase,
 ) GameHandler {
 	handler := GameHandler{
@@ -31,7 +33,7 @@ func NewGameHandler(
 
 func (g GameHandler) HandlerGetGame(
 	ctx context.Context,
-	room domain_websocket.Room,
+	room *domain_websocket.Room,
 	client domain_websocket.Client,
 	_ []byte,
 ) error {
@@ -49,16 +51,22 @@ func (g GameHandler) HandlerGetGame(
 
 	game, err := g.usecase.Get(context.Background(), gameID)
 	if err != nil {
-		log.Printf("Handler/Game/HandlerGetGame: ran into an error getting game, err: %v", err)
+		log.Printf("Handler/Game/HandlerGetGame: ran into an error getting game\nerr: %v", err)
 		return err
 	}
 
-	jsonData, err := json.Marshal(game)
+	jsonData, err := domain_websocket.NewOutboundMessage(
+		fmt.Sprintf("%s/%s", baseTopicName, param),
+		domain_websocket.InitEvent,
+		game,
+	).
+		ToJSON()
 	if err != nil {
+		log.Printf("Handler/Game/HandlerGetGame: error turning game into json\nerr: %v", err)
 		return err
 	}
 
-	client.Send(jsonData)
+	go client.Send(jsonData)
 
 	return nil
 }
