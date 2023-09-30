@@ -35,9 +35,7 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 	topic, err := domain_websocket.NewTopic(fmt.Sprintf("game/%s", gameIDStr))
 	assert.NoError(t, err)
 
-	webSocketRouter, err := domain_websocket.NewWebSocketRouter()
-	webSocketServer := domain_websocket.NewWebSocketServer(*webSocketRouter)
-	h := NewGameHandler(webSocketServer, topic.(*domain_websocket.TopicWithParm), mockUseCase)
+	h := NewGameHandler(topic.(domain_websocket.TopicWithParm), mockUseCase)
 
 	testChan := make(chan []byte)
 	mockClient := domain_websocket_mock.NewMockClient(testChan)

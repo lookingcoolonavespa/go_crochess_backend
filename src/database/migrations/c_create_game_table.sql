@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS crochess.game (
     white_time INT,
     black_time INT,
     history TEXT,
-    moves TEXT
+    moves TEXT,
+    black_draw_status BOOLEAN DEFAULT false,
+    white_draw_status BOOLEAN DEFAULT false,
 );
 

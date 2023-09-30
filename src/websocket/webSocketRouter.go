@@ -50,7 +50,7 @@ func NewWebSocketRouter() (WebSocketRouter, error) {
 		nil
 }
 
-func (r WebSocketRouter) PushNewRoute(topic Topic) {
+func (r *WebSocketRouter) PushNewRoute(topic Topic) {
 	r.topics = append(r.topics, topic)
 }
 
@@ -85,8 +85,7 @@ func (r WebSocketRouter) HandleWSMessage(ctx context.Context, client Client, mes
 		}
 	}
 
-	// errMsg := fmt.Sprintf("you are not subscribed to %s", wsMessage.Room)
-	// client.send <- []byte(errMsg)
-	// return errors.New(errMsg)
-	return nil
+	errMsg := fmt.Sprintf(`you are not subscribed to "%s"`, string(topicBytes[1]))
+	// // client.send <- []byte(errMsg)
+	return errors.New(errMsg)
 }

@@ -10,6 +10,7 @@ import (
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	domain_timerManager "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/timerManager"
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 	"github.com/notnil/chess"
 )
 
@@ -19,8 +20,6 @@ type gameUseCase struct {
 	timerManager *domain_timerManager.TimerManager
 	onTimeOut    func()
 }
-
-type Changes map[string]interface{}
 
 func NewGameUseCase(
 	db *sql.DB,
@@ -36,19 +35,23 @@ func NewGameUseCase(
 	}
 }
 
-func (c gameUseCase) Get(ctx context.Context, gameID int) (*domain.Game, error) {
-	game, err := c.gameRepo.Get(ctx, c.db, gameID)
+func (c gameUseCase) Get(ctx context.Context, gameID int) (domain.Game, error) {
+	game, err := c.gameRepo.Get(ctx, gameID)
 	if err != nil {
-		return nil, err
+		return domain.Game{}, err
 	}
 
 	return game, nil
 }
 
-func makeMove(g *domain.Game, playerID string, move string) (Changes, chess.Color, error) {
+func makeMove(
+	g domain.Game,
+	playerID string,
+	move string,
+) (utils.Changes, chess.Color, error) {
 	// makeMove returns the changes that need to be made to game structured as key/value pairs,
 	// the active color, and errors
-	changes := make(Changes)
+	changes := make(utils.Changes)
 
 	gameState := chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 	moves := strings.Split(g.Moves, " ")
@@ -71,6 +74,9 @@ func makeMove(g *domain.Game, playerID string, move string) (Changes, chess.Colo
 		return nil, chess.NoColor, err
 	}
 
+	changes["WhiteDrawStatus"] = false
+	changes["BlackDrawStatus"] = false
+
 	outcome := gameState.Outcome()
 	if outcome != chess.NoOutcome {
 		changes["Result"] = outcome.String()
@@ -78,8 +84,8 @@ func makeMove(g *domain.Game, playerID string, move string) (Changes, chess.Colo
 
 	} else {
 		if elgibleDraw := len(gameState.EligibleDraws()) > 0; elgibleDraw {
-			g.DrawRecord.Black = true
-			g.DrawRecord.White = true
+			changes["WhiteDrawStatus"] = true
+			changes["BlackDrawStatus"] = true
 		}
 
 		timeSpent := time.Now().Unix() - g.TimeStampAtTurnStart
@@ -108,7 +114,7 @@ func makeMove(g *domain.Game, playerID string, move string) (Changes, chess.Colo
 	gameState.ChangeNotation(chess.AlgebraicNotation{})
 	changes["History"] = strings.TrimLeft(gameState.String(), "\n")
 
-	return changes, activeColor.Other(), nil
+	return changes, activeColor, nil
 }
 
 func (c gameUseCase) handleTimer(
@@ -131,7 +137,7 @@ func (c gameUseCase) handleTimer(
 				changes["Result"] = chess.WhiteWon.String()
 			}
 			changes["Method"] = "Time out"
-			c.gameRepo.Update(ctx, c.db, gameID, version, changes)
+			c.gameRepo.Update(ctx, gameID, version, changes)
 			c.onTimeOut()
 		})
 	}
@@ -146,26 +152,22 @@ func (c gameUseCase) UpdateOnMove(
 	gameID int,
 	playerID string,
 	move string,
-) (Changes, error) {
-	tx, err := c.db.BeginTx(ctx, nil)
-	g, err := c.gameRepo.Get(ctx, tx, gameID)
+) (utils.Changes, error) {
+	g, err := c.gameRepo.Get(ctx, gameID)
 	if err != nil {
 		return nil, err
 	}
 
 	changes, activeColor, err := makeMove(g, playerID, move)
 	if err != nil {
-		tx.Rollback()
 		return nil, err
 	}
 
-	updated, err := c.gameRepo.Update(ctx, tx, gameID, g.Version, changes)
+	updated, err := c.gameRepo.Update(ctx, gameID, g.Version, changes)
 	if !updated {
-		tx.Rollback()
 		return nil, errors.New("The move did not reach the server fast enough")
 	}
 	if err != nil {
-		tx.Rollback()
 		return nil, err
 	}
 

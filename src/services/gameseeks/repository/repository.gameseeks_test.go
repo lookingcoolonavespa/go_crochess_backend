@@ -50,7 +50,7 @@ func TestGameseeksRepository_Insert(t *testing.T) {
 
 	defer db.Close()
 
-	query := fmt.Sprintf(`
+	stmt := fmt.Sprintf(`
     INSERT INTO gameseeks (
         color,
         time,
@@ -66,14 +66,14 @@ func TestGameseeksRepository_Insert(t *testing.T) {
 	increment := 5
 	seeker := "fdafea"
 
-	mock.ExpectExec(query).WithArgs(color, time, increment, seeker).
+	mock.ExpectExec(stmt).WithArgs(color, time, increment, seeker).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	r := NewGameseeksRepo(db)
 
 	err := r.Insert(
 		context.Background(),
-		&domain.Gameseek{
+		domain.Gameseek{
 			Color:     color,
 			Time:      time,
 			Increment: increment,
@@ -83,32 +83,31 @@ func TestGameseeksRepository_Insert(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGameseeksRepository_Delete(t *testing.T) {
+func TestGameseeksRepository_DeleteFromSeeker(t *testing.T) {
 	db, mock := initMock()
 
 	defer db.Close()
 
-	seeker1 := "fdafda"
-	seeker2 := "faaaa"
-	query := fmt.Sprintf(`
-    DELETE FROM 
-        gameseeks
-    WHERE 
-        seeker 
-    IN (
-        $1, $2
-    )`,
-	)
+	rows := sqlmock.NewRows([]string{"id"}).
+		AddRow(0).
+		AddRow(1)
 
-	mock.ExpectBegin()
-	mock.ExpectExec(query).
-		WithArgs(seeker1, seeker2).
-		WillReturnResult(sqlmock.NewResult(1, 1))
+	seeker := "fdafda"
+	query := fmt.Sprintf(`
+    DELETE FROM gameseeks
+    WHERE seeker = $1
+    RETURNING id
+	`)
+
+	mock.ExpectQuery(query).
+		WithArgs(seeker).
+		WillReturnRows(rows)
 
 	r := NewGameseeksRepo(db)
 
-	tx, err := r.db.Begin()
-	err = r.Delete(context.Background(), tx, seeker1, seeker2)
-
+	deletedIDs, err := r.DeleteFromSeeker(context.Background(), seeker)
 	assert.NoError(t, err)
+
+	assert.NotNil(t, deletedIDs)
+	assert.Len(t, deletedIDs, 2)
 }

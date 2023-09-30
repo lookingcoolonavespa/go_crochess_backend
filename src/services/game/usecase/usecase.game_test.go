@@ -27,7 +27,7 @@ func initMock() (*sql.DB, sqlmock.Sqlmock) {
 }
 
 func TestGameUseCase_UpdateOnMove(t *testing.T) {
-	db, _ := initMock()
+	db, mock := initMock()
 
 	mockGameRepo := new(repository_game_mock.GameMockRepo)
 	timerManager := new(domain_timerManager.TimerManager)
@@ -47,7 +47,6 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		Result:               "",
 		Method:               "",
 		Version:              1,
-		DrawRecord:           &domain.DrawRecord{},
 	}
 
 	t.Run("Success on regular move", func(t *testing.T) {
@@ -60,10 +59,15 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			"Moves":                fmt.Sprintf("%s %s", mockGame.Moves, move),
 		}
 
-		mockGameRepo.On("Get", mockGame.ID).Return(&mockGame, nil).Once()
-		mockGameRepo.On("Update", mockGame.ID, mockGame.Version, changes).Return(true, nil).Once()
+		tx, err := db.BeginTx(context.Background(), nil)
+		assert.NoError(t, err)
 
-		_, err := gameUseCase.UpdateOnMove(
+		mockGameRepo.
+			mockGameRepo.On("Get", context.Background(), tx, mockGame.ID).Return(&mockGame, nil).Once()
+		mockGameRepo.On("Update", context.Background(), tx, mockGame.ID, mockGame.Version, changes).Return(true, nil).Once()
+
+		mock.ExpectBegin()
+		_, err = gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame.ID,
 			mockGame.WhiteID,

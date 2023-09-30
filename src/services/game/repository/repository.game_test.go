@@ -43,37 +43,27 @@ func TestGameRepo_Get(t *testing.T) {
 		"black_time",
 		"history",
 		"moves",
-		"black",
-		"white",
+		"white_draw_status",
+		"black_draw_status",
 	}).
 		AddRow(gameID, "faa", "fab", 5000, 0, "", "", 0, time.Now().Unix(), 5000, 5000, "", "", false, true)
 
-	query := fmt.Sprintf(`
-        SELECT 
-            game.*,
-            drawrecord.black,
-            drawrecord.white
-        FROM 
-            game g
-        LEFT JOIN 
-            drawrecord dr
-        ON
-            g.id = dr.game_id
-        WHERE 
-            g.id = $1
-    `,
-	)
+	query :=
+		fmt.Sprintf(
+			`SELECT *
+            FROM game
+            WHERE id = $1`,
+		)
 
 	mock.ExpectQuery(query).WillReturnRows(rows)
 
-	r := NewGameRepo()
+	r := NewGameRepo(db)
 
-	game, err := r.Get(context.Background(), db, gameID)
+	game, err := r.Get(context.Background(), gameID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, game)
-	assert.NotNil(t, game.DrawRecord)
-	assert.True(t, game.DrawRecord.White)
+	assert.True(t, game.BlackDrawStatus)
 }
 
 func TestGameRepo_Update(t *testing.T) {
@@ -93,42 +83,37 @@ func TestGameRepo_Update(t *testing.T) {
 	query := fmt.Sprintf(`
     UPDATE game 
     SET 
-        version = %d,
+        version = $1,
         white_time = %d
-    WHERE
-        id = %d
-    AND
-        version = %d
+    WHERE id = $2
+    AND version = $3
     `,
-		newVersion,
 		newWhiteTime,
-		gameID,
-		mockGame.Version,
 	)
 
-	mock.ExpectBegin()
-	mock.ExpectExec(query).WillReturnResult(sqlmock.NewResult(int64(gameID), 1))
+	mock.ExpectExec(query).
+		WithArgs(newVersion, gameID, mockGame.Version).
+		WillReturnResult(sqlmock.NewResult(int64(gameID), 1))
 
-	r := NewGameRepo()
+	r := NewGameRepo(db)
 
 	changes := make(map[string]interface{})
 	changes["WhiteTime"] = newWhiteTime
 
-	tx, err := db.Begin()
 	assert.NoError(t, err)
 
-	updated, err := r.Update(context.Background(), tx, gameID, mockGame.Version, changes)
+	updated, err := r.Update(context.Background(), gameID, mockGame.Version, changes)
 
 	assert.NoError(t, err)
 	assert.True(t, updated)
 }
 
-func TestGameRepo_Insert(t *testing.T) {
+func TestGameRepo_InsertAndDeleteGameseeks(t *testing.T) {
 	db, mock := initMock()
 
 	defer db.Close()
 
-	gameQuery := fmt.Sprintf(`
+	insertStmt := fmt.Sprintf(`
     INSERT INTO game (
         white_id,
         black_id,
@@ -143,17 +128,14 @@ func TestGameRepo_Insert(t *testing.T) {
     )`,
 	)
 
-	drawrecordQuery := fmt.Sprintf(`
-    INSERT INTO drawrecord (
-        game_id,
-        white,
-        black
-    ) VALUES (
-        $1, $2, $2
-    )`,
+	deleteQuery := fmt.Sprintf(`
+    DELETE FROM gameseeks
+    WHERE seeker 
+    IN ( $1, $2 )
+    RETURNING id`,
 	)
 
-	expectedGameID := int64(64)
+	expectedGameID := 64
 
 	whiteID := "four"
 	blackID := "five"
@@ -165,7 +147,7 @@ func TestGameRepo_Insert(t *testing.T) {
 	blackTime := timeData
 
 	mock.ExpectBegin()
-	mock.ExpectExec(gameQuery).
+	mock.ExpectExec(insertStmt).
 		WithArgs(
 			whiteID,
 			blackID,
@@ -176,20 +158,20 @@ func TestGameRepo_Insert(t *testing.T) {
 			whiteTime,
 			blackTime,
 		).
-		WillReturnResult(sqlmock.NewResult(expectedGameID, 1))
-	mock.ExpectExec(drawrecordQuery).
-		WithArgs(expectedGameID, false).
-		WillReturnResult(sqlmock.NewResult(expectedGameID, 1))
+		WillReturnResult(sqlmock.NewResult(int64(expectedGameID), 1))
 
-	r := NewGameRepo()
+	rows := sqlmock.NewRows([]string{"id"}).
+		AddRow(0).
+		AddRow(1)
+	mock.ExpectQuery(deleteQuery).
+		WithArgs(whiteID, blackID).
+		WillReturnRows(rows)
 
-	tx, err := db.Begin()
-	assert.NoError(t, err)
+	r := NewGameRepo(db)
 
-	gameID, err := r.Insert(
+	gameID, deletedGameseeks, err := r.InsertAndDeleteGameseeks(
 		context.Background(),
-		tx,
-		&domain.Game{
+		domain.Game{
 			WhiteID:              whiteID,
 			BlackID:              blackID,
 			Time:                 timeData,
@@ -202,4 +184,6 @@ func TestGameRepo_Insert(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedGameID, gameID)
+	assert.NotNil(t, deletedGameseeks)
+	assert.Len(t, deletedGameseeks, 2)
 }

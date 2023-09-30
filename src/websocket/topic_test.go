@@ -1,6 +1,8 @@
 package domain_websocket
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestNewTopic(t *testing.T) {
 	tests := []struct {

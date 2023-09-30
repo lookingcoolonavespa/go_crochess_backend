@@ -11,7 +11,7 @@ type Room struct {
 }
 
 func NewRoom(clients []Client, param string) Room {
-	var clientMap map[int]Client
+	clientMap := make(map[int]Client)
 	for _, client := range clients {
 		clientMap[client.GetID()] = client
 	}
@@ -21,13 +21,13 @@ func NewRoom(clients []Client, param string) Room {
 	}
 }
 
-func (r *Room) BroadcastMessage(message []byte) {
+func (r Room) BroadcastMessage(message []byte) {
 	for _, client := range r.clients {
 		client.Send(message)
 	}
 }
 
-func (r *Room) PushNewClient(client Client) error {
+func (r Room) PushNewClient(client Client) error {
 	_, ok := r.clients[client.GetID()]
 	if ok {
 		return errors.New(fmt.Sprintf(`a client with the id "%d" already exists`, client.GetID()))
@@ -38,7 +38,7 @@ func (r *Room) PushNewClient(client Client) error {
 	return nil
 }
 
-func (r *Room) GetParam() (string, error) {
+func (r Room) GetParam() (string, error) {
 	if r.param == "" {
 		return "", errors.New("room does not have a param")
 	}

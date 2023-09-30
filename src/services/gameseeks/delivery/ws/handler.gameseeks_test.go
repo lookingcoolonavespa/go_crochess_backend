@@ -21,6 +21,7 @@ func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
 	assert.NoError(t, err)
 
 	mockRepo := new(repository_gameseeks_mock.GameseeksMockRepo)
+	mockUseCase := new(rep)
 
 	mockGameseeks := make([]domain.Gameseek, 0)
 	mockGameseeks = append(mockGameseeks, mockGameseek)

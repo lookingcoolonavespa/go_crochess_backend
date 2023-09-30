@@ -77,19 +77,18 @@ func (c *client) ReadPump(
 	ctx context.Context,
 ) {
 	for {
-		_, wsMessage, err := c.conn.Reader(ctx)
+		_, _, err := c.conn.Reader(ctx)
 		if err != nil {
 			c.handleClose(ctx, err)
 			break
 		}
 		buffer := make([]byte, 10000)
-		bufferLen, err := wsMessage.Read(buffer)
 		if err != nil {
 			c.handleClose(ctx, err)
 			break
 		}
 
-		err = c.wsServer.router.HandleWSMessage(ctx, c, buffer, bufferLen)
+		err = c.wsServer.router.HandleWSMessage(ctx, c, buffer)
 		if err != nil {
 			c.handleClose(ctx, err)
 			break

@@ -2,45 +2,38 @@ package repository_game
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"regexp"
 	"time"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	services_database "github.com/lookingcoolonavespa/go_crochess_backend/src/services/database"
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 )
 
 type gameRepo struct {
+	db *sql.DB
 }
 
-func NewGameRepo() gameRepo {
-	return gameRepo{}
+func NewGameRepo(db *sql.DB) gameRepo {
+	return gameRepo{db}
 }
 
-func (c gameRepo) Get(ctx context.Context, db services_database.DBExecutor, id int) (*domain.Game, error) {
-	stmt :=
+func (c gameRepo) Get(ctx context.Context, id int) (domain.Game, error) {
+	query :=
 		fmt.Sprintf(
-			`SELECT 
-                game.*,
-                drawrecord.black,
-                drawrecord.white
-            FROM 
-                game g
-            LEFT JOIN 
-                drawrecord dr 
-            ON 
-                g.id = dr.game_id
-            WHERE
-                g.id = $1`,
+			`SELECT *
+            FROM game
+            WHERE id = $1`,
 		)
 
-	row := db.QueryRowContext(ctx, stmt, id)
+	row := c.db.QueryRowContext(ctx, query, id)
 
-	game := domain.Game{
-		DrawRecord: new(domain.DrawRecord),
-	}
+	game := domain.Game{}
 	err := row.Scan(
 		&game.ID,
 		&game.WhiteID,
@@ -55,21 +48,21 @@ func (c gameRepo) Get(ctx context.Context, db services_database.DBExecutor, id i
 		&game.BlackTime,
 		&game.History,
 		&game.Moves,
-		&game.DrawRecord.Black,
-		&game.DrawRecord.White,
+		&game.WhiteDrawStatus,
+		&game.BlackDrawStatus,
 	)
 	if err != nil {
-		return nil, err
+		return domain.Game{}, err
 	}
 
-	return &game, nil
+	return game, nil
 }
 
-func (c gameRepo) Insert(
+func (c gameRepo) insertWithDBExecutor(
 	ctx context.Context,
 	db services_database.DBExecutor,
-	g *domain.Game,
-) (int64, error) {
+	g domain.Game,
+) (gameID int, err error) {
 	gameStmt := fmt.Sprintf(`
     INSERT INTO game (
         white_id,
@@ -101,39 +94,71 @@ func (c gameRepo) Insert(
 		return 0, err
 	}
 
-	gameID, err := res.LastInsertId()
+	gID, err := res.LastInsertId()
 	if err != nil {
 		return 0, err
 	}
 
-	drawRecordStmt := fmt.Sprintf(`
-    INSERT INTO drawrecord (
-        game_id,
-        white,
-        black
-    ) VALUES (
-        $1, $2, $2
-    )`,
+	return int(gID), nil
+}
+
+func (c gameRepo) InsertAndDeleteGameseeks(
+	ctx context.Context,
+	g domain.Game,
+) (gameID int, deletedGameseeks []int, err error) {
+	tx, err := c.db.BeginTx(ctx, nil)
+	if err != nil {
+		return -1, nil, err
+	}
+
+	gameID, err = c.insertWithDBExecutor(ctx, tx, g)
+	if err != nil {
+		tx.Rollback()
+		return -1, nil, err
+	}
+
+	sql := fmt.Sprintf(`
+    DELETE FROM gameseeks
+    WHERE seeker 
+    IN ( $1, $2 )
+    RETURNING id
+    `,
 	)
 
-	_, err = db.ExecContext(ctx, drawRecordStmt, gameID, false)
+	rows, err := tx.QueryContext(ctx, sql, g.WhiteID, g.BlackID)
 	if err != nil {
-		return 0, err
+		tx.Rollback()
+		return -1, nil, err
 	}
 
-	return gameID, nil
+	defer rows.Close()
+
+	deletedIDs := make([]int, 0)
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			log.Printf("Repository/Game/InsertAndDeleteGameseeks error scanning into id: %v", err)
+			tx.Rollback()
+			return -1, nil, err
+		}
+		deletedIDs = append(deletedIDs, id)
+	}
+
+	tx.Commit()
+
+	return int(gameID), deletedIDs, nil
+
 }
 
 func (c gameRepo) Update(
 	ctx context.Context,
-	db services_database.DBExecutor,
 	id int,
 	version int,
-	changes map[string]interface{},
-) (bool, error) {
-	var g domain.Game
+	changes utils.Changes,
+) (updated bool, err error) {
+	var game domain.Game
 	var updateStr string
-	gType := reflect.TypeOf(g)
+	gType := reflect.TypeOf(game)
 	for i := 0; i < gType.NumField(); i++ {
 		field := gType.Field(i)
 		fieldName := field.Name
@@ -152,30 +177,28 @@ func (c gameRepo) Update(
 	stmt := fmt.Sprintf(`
     UPDATE game 
     SET 
-        version = %d,
+        version = $1,
         %s
     WHERE
-        id = %d
+        id = $2
     AND
-        version = %d
+        version = $3
     `,
-		version+1,
 		updateStr,
-		id,
-		version,
 	)
 
-	result, err := db.ExecContext(ctx, stmt)
+	result, err := c.db.ExecContext(ctx, stmt, version+1, id, version)
 	if err != nil {
 		return false, err
 	}
-
-	fmt.Printf("%v", result)
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return false, err
 	}
+	if rowsAffected != 1 {
+		return false, errors.New("Could not update game, version is invalid")
+	}
 
-	return rowsAffected > 0, nil
+	return true, nil
 }

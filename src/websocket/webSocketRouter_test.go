@@ -24,24 +24,24 @@ const (
 	testTopic = "topic"
 )
 
-func setupWebSocketRouter(t *testing.T, expected string) (*WebSocketRouter, error) {
+func setupWebSocketRouter(t *testing.T, expected string) (WebSocketRouter, error) {
 	r, err := NewWebSocketRouter()
 	if err != nil {
-		return nil, err
+		return WebSocketRouter{}, err
 	}
 
 	topic, err := NewTopic(testTopic)
 	if err != nil {
-		return nil, err
+		return WebSocketRouter{}, err
 	}
 
 	payloadRegex, err := jsonRegex("payload")
 	if err != nil {
-		return nil, err
+		return WebSocketRouter{}, err
 	}
 	expectedPayload := payloadRegex.FindStringSubmatch(expected)
 	if len(expectedPayload) != 2 {
-		return nil, errors.New("payload field is missing in expected")
+		return WebSocketRouter{}, errors.New("payload field is missing in expected")
 	}
 
 	mockHandleFunc := func(ctx context.Context, room Room, client Client, payload []byte) error {
@@ -77,10 +77,8 @@ func TestWebSocketRouter_HandleWSMessage(t *testing.T) {
 		{
 			name: "invalid_json-event_field",
 			expected: fmt.Sprintf(`{"topic": "%s",
-            "event" "%s",
             "payload": "test ran successfully"}`,
 				testTopic,
-				testEvent,
 			),
 			shouldErr: true,
 		},
@@ -109,12 +107,11 @@ func TestWebSocketRouter_HandleWSMessage(t *testing.T) {
 					context.Background(),
 					domain_websocket_mock.NewMockClient(make(chan []byte)),
 					[]byte(tt.expected),
-					len(tt.expected),
 				)
 				if err != nil && !tt.shouldErr {
-					t.Errorf("HandleWSMessage should err")
-				} else if err == nil && tt.shouldErr {
 					t.Errorf("error running HandleWSMessage: %v", err)
+				} else if err == nil && tt.shouldErr {
+					t.Errorf("HandleWSMessage should err")
 				}
 			},
 		)

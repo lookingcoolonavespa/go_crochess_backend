@@ -10,10 +10,6 @@ import (
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 )
 
-const (
-	startGameEvent = "start game"
-)
-
 type GameHandler struct {
 	topic   domain_websocket.TopicWithParm
 	usecase domain.GameUseCase
@@ -29,12 +25,11 @@ func NewGameHandler(
 	}
 
 	topic.RegisterEvent(domain_websocket.SubscribeEvent, handler.HandlerGetGame)
-	// topic.RegisterEvent(domain_websocket.InsertEvent)
 
 	return handler
 }
 
-func (g GameHandler) HandlerSubscribe(
+func (g GameHandler) HandlerGetGame(
 	ctx context.Context,
 	room domain_websocket.Room,
 	client domain_websocket.Client,

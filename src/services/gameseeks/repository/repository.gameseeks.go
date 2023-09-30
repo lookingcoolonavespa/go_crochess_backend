@@ -3,15 +3,18 @@ package repository_gameseeks
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
+	"log"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
-	services_database "github.com/lookingcoolonavespa/go_crochess_backend/src/services/database"
 )
 
 type gameseeksRepo struct {
 	db *sql.DB
+}
+
+func NewGameseeksRepo(db *sql.DB) gameseeksRepo {
+	return gameseeksRepo{db}
 }
 
 func (c gameseeksRepo) List(ctx context.Context) ([]domain.Gameseek, error) {
@@ -47,7 +50,33 @@ func (c gameseeksRepo) List(ctx context.Context) ([]domain.Gameseek, error) {
 	return gameseeks, nil
 }
 
-func (c gameseeksRepo) Insert(ctx context.Context, gs *domain.Gameseek) error {
+func (c gameseeksRepo) DeleteFromSeeker(ctx context.Context, seeker string) ([]int, error) {
+	sql := fmt.Sprintf(`
+    DELETE FROM gameseeks
+    WHERE seeker = $1
+    RETURNING id
+	`)
+	rows, err := c.db.QueryContext(ctx, sql, seeker)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	deletedIDs := make([]int, 0)
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			log.Printf("Repository/Gameseek/DeleteFromSeeker error scanning into id: %v", err)
+			return nil, err
+		}
+		deletedIDs = append(deletedIDs, id)
+	}
+
+	return deletedIDs, nil
+}
+
+func (c gameseeksRepo) Insert(ctx context.Context, gs domain.Gameseek) error {
 	stmt := fmt.Sprintf(`
     INSERT INTO gameseeks (
         color,
@@ -72,30 +101,4 @@ func (c gameseeksRepo) Insert(ctx context.Context, gs *domain.Gameseek) error {
 	}
 
 	return nil
-}
-
-func (c gameseeksRepo) Delete(ctx context.Context, db services_database.DBExecutor, seekers ...string) error {
-	if len(seekers) != 2 {
-		return errors.New(fmt.Sprintf("seeker count should be two\nseeker count: %d", len(seekers)))
-	}
-	sql := fmt.Sprintf(`
-    DELETE FROM 
-        gameseeks
-    WHERE
-        seeker 
-    IN (
-        $1, $2
-    )`,
-	)
-
-	_, err := db.ExecContext(ctx, sql, seekers[0], seekers[1])
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func NewGameseeksRepo(db *sql.DB) gameseeksRepo {
-	return gameseeksRepo{db}
 }

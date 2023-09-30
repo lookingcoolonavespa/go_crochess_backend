@@ -24,12 +24,12 @@ func initMock() (*sql.DB, sqlmock.Sqlmock) {
 	return db, mock
 }
 
-func TestGameUseCase_OnAccept(t *testing.T) {
+func TestGameseeksUseCase_OnAccept(t *testing.T) {
 	db, _ := initMock()
 
 	mockGameRepo := new(repository_game_mock.GameMockRepo)
 	mockGameseeksRepo := new(repository_gameseeks_mock.GameseeksMockRepo)
-	gameseeksUseCase := NewGameseeksUseCase(db, mockGameseeksRepo, mockGameRepo)
+	gameseeksUseCase := NewGameseeksUseCase(db, mockGameRepo)
 
 	var mockGame domain.Game
 	err := faker.FakeData(&mockGame)
@@ -45,7 +45,7 @@ func TestGameUseCase_OnAccept(t *testing.T) {
 		mockGameRepo.On("Insert", &mockGame).Return(testGameID).Once()
 		mockGameseeksRepo.On("Delete", mockGame.WhiteID, mockGame.BlackID).Return(nil).Once()
 
-		gameID, err := gameseeksUseCase.OnAccept(context.Background(), &mockGame)
+		gameID, _, err := gameseeksUseCase.OnAccept(context.Background(), mockGame)
 		assert.NoError(t, err)
 
 		assert.Equal(t, testGameID, gameID)
@@ -57,7 +57,7 @@ func TestGameUseCase_OnAccept(t *testing.T) {
 	t.Run("Failed on Insert", func(t *testing.T) {
 		mockGameRepo.On("Insert", &mockGame).Return(errors.New("Unexpected")).Once()
 
-		_, err := gameseeksUseCase.OnAccept(context.Background(), &mockGame)
+		_, _, err := gameseeksUseCase.OnAccept(context.Background(), mockGame)
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)
@@ -68,7 +68,7 @@ func TestGameUseCase_OnAccept(t *testing.T) {
 		mockGameRepo.On("Insert", &mockGame).Return(testGameID).Once()
 		mockGameseeksRepo.On("Delete", mockGame.WhiteID, mockGame.BlackID).Return(errors.New("Unexpected")).Once()
 
-		_, err := gameseeksUseCase.OnAccept(context.Background(), &mockGame)
+		_, _, err := gameseeksUseCase.OnAccept(context.Background(), &mockGame)
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)

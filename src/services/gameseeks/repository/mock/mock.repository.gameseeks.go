@@ -4,7 +4,6 @@ import (
 	"context"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
-	services_database "github.com/lookingcoolonavespa/go_crochess_backend/src/services/database"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -25,12 +24,8 @@ func (c *GameseeksMockRepo) Insert(ctx context.Context, g *domain.Gameseek) erro
 	return args.Error(0)
 }
 
-func (c *GameseeksMockRepo) Delete(ctx context.Context, db services_database.DBExecutor, seekers ...string) error {
-	var interfaceSeekers []interface{}
-	for _, s := range seekers {
-		interfaceSeekers = append(interfaceSeekers, s)
-	}
-	args := c.Called(ctx, db, seekers[0], seekers[1])
+func (c *GameseeksMockRepo) DeleteFromSeeker(ctx context.Context, seeker string) error {
+	args := c.Called(ctx, seeker)
 
 	return args.Error(0)
 }
