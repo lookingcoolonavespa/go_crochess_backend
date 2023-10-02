@@ -4,6 +4,7 @@ import (
 	"context"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -22,7 +23,7 @@ func (c *GameMockRepo) Update(
 	ctx context.Context,
 	id int,
 	version int,
-	changes map[string]interface{},
+	changes utils.Changes,
 ) (bool, error) {
 	args := c.Called(ctx, id, version, changes)
 	result := args.Get(0)

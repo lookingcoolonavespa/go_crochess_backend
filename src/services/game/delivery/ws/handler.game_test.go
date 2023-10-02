@@ -10,7 +10,6 @@ import (
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	mock_usecase_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/usecase/mock"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
-	domain_websocket_mock "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket/mock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,11 +33,11 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 	h := NewGameHandler(topic.(domain_websocket.TopicWithParam), mockUseCase)
 
 	testChan := make(chan []byte)
-	mockClient := domain_websocket_mock.NewMockClient(testChan)
+	mockClient := domain_websocket.NewClient(0, testChan, nil, nil)
 
 	mockRoom := domain_websocket.NewRoom([]domain_websocket.Client{mockClient}, gameIDStr)
 
-	err = h.HandlerGetGame(context.Background(), mockRoom, mockClient, make([]byte, 0))
+	err = h.HandlerOnSubscribe(context.Background(), mockRoom, mockClient, make([]byte, 0))
 	assert.NoError(t, err)
 
 	select {

@@ -23,16 +23,16 @@ func (t *TimerManager) StartTimer(timerID int, duration time.Duration, callback 
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
+	fmt.Println(timerID)
 	existingTimer, exists := t.timers[timerID]
 	if exists {
 		existingTimer.Stop()
 	}
 
 	newTimer := time.AfterFunc(duration, func() {
-		if timer, exists := t.timers[timerID]; exists {
-			callback()
-			timer.Stop()
-		}
+		fmt.Println(timerID)
+		callback()
+		t.StopAndDeleteTimer(timerID)
 	},
 	)
 

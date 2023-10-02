@@ -18,20 +18,16 @@ type gameUseCase struct {
 	db           *sql.DB
 	gameRepo     domain.GameRepo
 	timerManager *domain_timerManager.TimerManager
-	onTimeOut    func()
 }
 
 func NewGameUseCase(
 	db *sql.DB,
 	gameRepo domain.GameRepo,
-	timerManager *domain_timerManager.TimerManager,
-	onTimeOut func(),
 ) gameUseCase {
 	return gameUseCase{
 		db,
 		gameRepo,
-		timerManager,
-		onTimeOut,
+		domain_timerManager.NewTimerManager(),
 	}
 }
 
@@ -120,6 +116,7 @@ func makeMove(
 
 func (c gameUseCase) handleTimer(
 	ctx context.Context,
+	onTimeOut func(utils.Changes),
 	gameID int, version int,
 	duration time.Duration,
 	activeColor chess.Color,
@@ -129,7 +126,7 @@ func (c gameUseCase) handleTimer(
 		c.timerManager.StopAndDeleteTimer(gameID)
 	} else {
 		c.timerManager.StartTimer(gameID, duration, func() {
-			changes := make(map[string]interface{})
+			changes := make(utils.Changes)
 			changes["Method"] = "Time out"
 			changes["WhiteDrawStatus"] = false
 			changes["BlackDrawStatus"] = false
@@ -144,7 +141,8 @@ func (c gameUseCase) handleTimer(
 
 			updated, err := c.gameRepo.Update(ctx, gameID, version, changes)
 			if updated && err == nil {
-				c.onTimeOut()
+				c.timerManager.StopAndDeleteTimer(gameID)
+				onTimeOut(changes)
 			}
 		})
 	}
@@ -159,6 +157,7 @@ func (c gameUseCase) UpdateOnMove(
 	gameID int,
 	playerID string,
 	move string,
+	onTimeOut func(utils.Changes),
 ) (utils.Changes, error) {
 	g, err := c.gameRepo.Get(ctx, gameID)
 	if err != nil {
@@ -185,7 +184,16 @@ func (c gameUseCase) UpdateOnMove(
 	} else {
 		timerDuration = intToMillisecondsDuration(g.BlackTime)
 	}
-	c.handleTimer(context.Background(), gameID, g.Version+1, timerDuration, activeColor, gameOver)
+	fmt.Printf("move: %s\nactive color: %s\n", move, activeColor.Name())
+	c.handleTimer(
+		context.Background(),
+		onTimeOut,
+		gameID,
+		g.Version+1,
+		timerDuration,
+		activeColor,
+		gameOver,
+	)
 
 	return changes, nil
 }

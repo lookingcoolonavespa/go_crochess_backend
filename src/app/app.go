@@ -12,6 +12,13 @@ import (
 	"time"
 
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/database"
+	delivery_ws_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/delivery/ws"
+	repository_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/repository"
+	usecase_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/usecase"
+	delivery_ws_gameseeks "github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/delivery/ws"
+	repository_gameseeks "github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/repository"
+	usecase_gameseeks "github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/usecase"
+
 	// "github.com/lookingcoolonavespa/go_crochess_backend/database/migrations"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 	"github.com/spf13/viper"
@@ -20,12 +27,12 @@ import (
 func Run() {
 	initConfig()
 
-	_, err := initDB()
+	db, err := initDB()
 	if err != nil {
 		log.Fatalf("%s: %v", "Error on connect to database", err)
 	}
 
-	initHandlers()
+	initHandlers(db)
 }
 
 func initConfig() {
@@ -65,13 +72,38 @@ func initDB() (*sql.DB, error) {
 	return db, nil
 }
 
-func initHandlers() {
+func initHandlers(db *sql.DB) {
+	gameseeksTopic, err := domain_websocket.NewTopic("gameseeks")
+	if err != nil {
+		log.Printf("error instantiating gameseeks topic: %v", err)
+		return
+	}
+	gameseeksRepo := repository_gameseeks.NewGameseeksRepo(db)
+	gameRepo := repository_game.NewGameRepo(db)
+	gameseeksUseCase := usecase_gameseeks.NewGameseeksUseCase(db, gameRepo)
+	gameseeksHandler := delivery_ws_gameseeks.NewGameseeksHandler(gameseeksRepo, gameseeksUseCase, gameseeksTopic)
+	gameseeksTopic.RegisterEvent(domain_websocket.SubscribeEvent, gameseeksHandler.HandlerGetGameseeksList)
+	gameseeksTopic.RegisterEvent(domain_websocket.InsertEvent, gameseeksHandler.HandleGameseekInsert)
+
+	gameTopic, err := domain_websocket.NewTopic("game/id")
+	if err != nil {
+		log.Printf("error instantiating gameseeks topic: %v", err)
+		return
+	}
+	gameUseCase := usecase_game.NewGameUseCase(db, gameRepo)
+	gameHandler := delivery_ws_game.NewGameHandler(gameTopic.(domain_websocket.TopicWithParam), gameUseCase)
+	gameTopic.RegisterEvent(domain_websocket.SubscribeEvent, gameHandler.HandlerOnSubscribe)
+
 	webSocketRouter, err := domain_websocket.NewWebSocketRouter()
 	if err != nil {
 		log.Printf("error instantiating web socket router: %v", err)
 		return
 	}
+	webSocketRouter.PushNewRoute(gameTopic)
+	webSocketRouter.PushNewRoute(gameseeksTopic)
+
 	webSocketServer := domain_websocket.NewWebSocketServer(webSocketRouter)
+
 	http.HandleFunc("/ws", webSocketServer.HandleWS)
 
 	srv := &http.Server{

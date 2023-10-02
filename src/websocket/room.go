@@ -7,9 +7,10 @@ import (
 )
 
 type Room struct {
-	clients map[int]Client
-	param   string
-	mutex   sync.Mutex
+	clients    map[int]Client
+	param      string
+	mutex      sync.Mutex
+	unregister chan Client
 }
 
 func NewRoom(clients []Client, param string) *Room {
@@ -21,16 +22,17 @@ func NewRoom(clients []Client, param string) *Room {
 		clientMap,
 		param,
 		sync.Mutex{},
+		make(chan Client),
 	}
 }
 
 func (r *Room) BroadcastMessage(message []byte) {
 	for _, client := range r.clients {
-		go client.Send(message)
+		go client.SendBytes(message)
 	}
 }
 
-func (r *Room) PushNewClient(client Client) error {
+func (r *Room) RegisterClient(client Client) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	_, ok := r.clients[client.GetID()]
@@ -41,6 +43,14 @@ func (r *Room) PushNewClient(client Client) error {
 	r.clients[client.GetID()] = client
 
 	return nil
+}
+
+func (r *Room) UnregisterClient(client Client) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	if _, ok := r.clients[client.GetID()]; ok {
+		delete(r.clients, client.GetID())
+	}
 }
 
 func (r *Room) GetParam() (string, error) {

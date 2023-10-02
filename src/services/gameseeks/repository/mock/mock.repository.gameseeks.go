@@ -24,8 +24,9 @@ func (c *GameseeksMockRepo) Insert(ctx context.Context, g domain.Gameseek) error
 	return args.Error(0)
 }
 
-func (c *GameseeksMockRepo) DeleteFromSeeker(ctx context.Context, seeker string) error {
+func (c *GameseeksMockRepo) DeleteFromSeeker(ctx context.Context, seeker int) ([]int, error) {
 	args := c.Called(ctx, seeker)
+	res := args.Get(0)
 
-	return args.Error(0)
+	return res.([]int), args.Error(1)
 }

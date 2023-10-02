@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	domain_websocket_mock "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket/mock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -107,7 +106,7 @@ func TestWebSocketRouter_HandleWSMessage(t *testing.T) {
 
 				r.HandleWSMessage(
 					context.Background(),
-					domain_websocket_mock.NewMockClient(errChan),
+					NewClient(0, errChan, nil, nil),
 					[]byte(tt.expected),
 				)
 

@@ -1,6 +1,9 @@
 package domain_websocket
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"log"
+)
 
 type InboundMessage struct {
 	Room    string
@@ -9,9 +12,9 @@ type InboundMessage struct {
 }
 
 type OutboundMessage struct {
-	Topic   string
-	Event   string
-	payload interface{}
+	Topic   string      `json:"topic"`
+	Event   string      `json:"event"`
+	Payload interface{} `json:"payload"`
 }
 
 func NewOutboundMessage(topic string, event string, payload interface{}) OutboundMessage {
@@ -22,9 +25,10 @@ func NewOutboundMessage(topic string, event string, payload interface{}) Outboun
 	}
 }
 
-func (m OutboundMessage) ToJSON() ([]byte, error) {
+func (m OutboundMessage) ToJSON(logFormat string) ([]byte, error) {
 	jsonData, err := json.Marshal(m)
 	if err != nil {
+		log.Printf(logFormat, err)
 		return nil, err
 	}
 

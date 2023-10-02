@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	domain_websocket_mock "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket/mock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -163,7 +162,7 @@ func TestTopic_TopicWithoutParam_HandleWSMessage(t *testing.T) {
 	}
 
 	clientChan := make(chan []byte)
-	client := domain_websocket_mock.NewMockClient(clientChan)
+	client := NewClient(0, clientChan, nil, nil)
 	for _, tt := range tests {
 		t.Run(
 			tt.name,
@@ -239,7 +238,7 @@ func TestTopic_TopicWithParam_HandleWSMessage(t *testing.T) {
 	}
 
 	clientChan := make(chan []byte)
-	client := domain_websocket_mock.NewMockClient(clientChan)
+	client := NewClient(0, clientChan, nil, nil)
 	for _, tt := range tests {
 		t.Run(
 			tt.name,

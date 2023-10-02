@@ -38,15 +38,12 @@ func (tp TopicWithParam) HandleWSMessage(
 
 	param := tp.findParam(topicName)
 	room, ok := tp.rooms[param]
-	if event == SubscribeEvent {
-		if ok {
-			room.PushNewClient(client)
-		} else {
-			room = tp.PushNewRoom(param, []Client{client})
-		}
+	if event == SubscribeEvent && !ok {
+		room = tp.PushNewRoom(param, []Client{client})
 	}
 
-	if event != SubscribeEvent && !ok {
+	_, subscribed := room.clients[client.GetID()]
+	if event != SubscribeEvent && !subscribed {
 		err := client.SendError(
 			tp.name,
 			fmt.Sprintf(`you are not subscribed to "%s/%s"`, tp.name, param),

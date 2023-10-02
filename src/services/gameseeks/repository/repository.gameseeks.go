@@ -50,7 +50,7 @@ func (c gameseeksRepo) List(ctx context.Context) ([]domain.Gameseek, error) {
 	return gameseeks, nil
 }
 
-func (c gameseeksRepo) DeleteFromSeeker(ctx context.Context, seeker string) ([]int, error) {
+func (c gameseeksRepo) DeleteFromSeeker(ctx context.Context, seeker int) ([]int, error) {
 	sql := fmt.Sprintf(`
     DELETE FROM gameseeks
     WHERE seeker = $1

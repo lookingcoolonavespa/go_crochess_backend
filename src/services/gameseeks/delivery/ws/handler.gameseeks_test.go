@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/bxcodec/faker"
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/repository/mock"
 	mock_usecase_gameseeks "github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/usecase/mock"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
-	domain_websocket_mock "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket/mock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,10 +32,20 @@ func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
 	assert.NoError(t, err)
 	r := NewGameseeksHandler(mockRepo, mockUseCase, topic)
 
-	client := domain_websocket.NewClient(0, nil, nil)
+	messageChan := make(chan []byte)
+	client := domain_websocket.NewClient(0, messageChan, nil, nil)
 
-	err = r.HandlerGetGameseeksList(context.Background(), nil, client, nil)
+	room := domain_websocket.NewRoom(make([]domain_websocket.Client, 0), "")
+	err = r.HandlerGetGameseeksList(context.Background(), room, client, nil)
 	assert.NoError(t, err)
+
+	select {
+	case message := <-messageChan:
+		assert.Contains(t, string(message), domain_websocket.InitEvent)
+
+	case <-time.After(1 * time.Second):
+		t.Fatal("TestGameseeksHandler_HandlerGetGameseeksList hanging waiting for message")
+	}
 
 	mockRepo.AssertExpectations(t)
 }
@@ -60,7 +70,7 @@ func TestGameseeksHandler_HandlerInsertGameseek(t *testing.T) {
 	assert.NoError(t, err)
 
 	testChannel := make(chan []byte)
-	client := domain_websocket_mock.NewMockClient(testChannel)
+	client := domain_websocket.NewClient(0, testChannel, nil, nil)
 	room := domain_websocket.NewRoom([]domain_websocket.Client{client}, "")
 
 	err = r.HandleGameseekInsert(context.Background(), room, nil, jsonData)

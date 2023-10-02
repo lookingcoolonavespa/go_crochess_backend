@@ -92,7 +92,7 @@ func TestGameseeksRepository_DeleteFromSeeker(t *testing.T) {
 		AddRow(0).
 		AddRow(1)
 
-	seeker := "fdafda"
+	seeker := 5
 	query := fmt.Sprintf(`
     DELETE FROM gameseeks
     WHERE seeker = $1

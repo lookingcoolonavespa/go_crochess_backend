@@ -11,6 +11,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/bxcodec/faker"
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -97,7 +98,7 @@ func TestGameRepo_Update(t *testing.T) {
 
 	r := NewGameRepo(db)
 
-	changes := make(map[string]interface{})
+	changes := make(utils.Changes)
 	changes["WhiteTime"] = newWhiteTime
 
 	assert.NoError(t, err)

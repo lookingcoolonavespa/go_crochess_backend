@@ -53,20 +53,20 @@ func (s *WebSocketServer) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var client Client
+	var userID int
 	uid := r.URL.Query().Get("uid")
 	if uid == "" {
-		client = NewClient(clientID, conn, s)
+		userID = clientID
 		clientID += 1
 	} else {
-		id, err := strconv.Atoi(uid)
+		userID, err = strconv.Atoi(uid)
 		if err != nil {
 			log.Printf("error parsing user id when connecting: %v", err)
 			conn.Close(websocket.StatusInternalError, fmt.Sprintf(`"%s" is not a valid uid`, uid))
 			return
 		}
-		client = NewClient(id, conn, s)
 	}
+	client := NewClient(userID, make(chan []byte), conn, s)
 
 	go client.ReadPump(r.Context())
 	go client.WritePump(r.Context())

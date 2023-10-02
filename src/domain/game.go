@@ -30,7 +30,7 @@ type GameRepo interface {
 		ctx context.Context,
 		id int,
 		version int,
-		changes map[string]interface{},
+		changes utils.Changes,
 	) (updated bool, err error)
 	InsertAndDeleteGameseeks(
 		ctx context.Context,
@@ -45,5 +45,6 @@ type GameUseCase interface {
 		gameID int,
 		playerID string,
 		move string,
+		onTimeOut func(utils.Changes),
 	) (utils.Changes, error)
 }

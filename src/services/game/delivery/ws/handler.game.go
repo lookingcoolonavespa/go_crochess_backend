@@ -26,17 +26,19 @@ func NewGameHandler(
 		usecase,
 	}
 
-	topic.RegisterEvent(domain_websocket.SubscribeEvent, handler.HandlerGetGame)
+	topic.RegisterEvent(domain_websocket.SubscribeEvent, handler.HandlerOnSubscribe)
 
 	return handler
 }
 
-func (g GameHandler) HandlerGetGame(
+func (g GameHandler) HandlerOnSubscribe(
 	ctx context.Context,
 	room *domain_websocket.Room,
 	client domain_websocket.Client,
 	_ []byte,
 ) error {
+	client.Subscribe(room)
+
 	param, err := room.GetParam()
 	if err != nil {
 		log.Printf("Handler/Game/HandlerGetGame: room is missing param")
@@ -49,24 +51,28 @@ func (g GameHandler) HandlerGetGame(
 		return err
 	}
 
-	game, err := g.usecase.Get(context.Background(), gameID)
+	game, err := g.usecase.Get(ctx, gameID)
 	if err != nil {
 		log.Printf("Handler/Game/HandlerGetGame: ran into an error getting game\nerr: %v", err)
 		return err
 	}
 
-	jsonData, err := domain_websocket.NewOutboundMessage(
+	err = client.SendMessage(
 		fmt.Sprintf("%s/%s", baseTopicName, param),
 		domain_websocket.InitEvent,
 		game,
-	).
-		ToJSON()
-	if err != nil {
-		log.Printf("Handler/Game/HandlerGetGame: error turning game into json\nerr: %v", err)
-		return err
-	}
+		"Handler/Game/HandlerGetGame: error turning game into json\nerr: %v",
+	)
 
-	go client.Send(jsonData)
+	return err
+}
 
+func (g GameHandler) HandlerOnUnsubscribe(
+	ctx context.Context,
+	room *domain_websocket.Room,
+	client domain_websocket.Client,
+	_ []byte,
+) error {
+	client.Unsubscribe(room)
 	return nil
 }

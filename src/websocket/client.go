@@ -16,7 +16,10 @@ const (
 
 type Client interface {
 	GetID() int
-	Send([]byte)
+	Subscribe(*Room)
+	Unsubscribe(*Room)
+	SendBytes([]byte)
+	SendMessage(topic string, event string, payload interface{}, logMsg string) error
 	ReadPump(context.Context)
 	WritePump(context.Context)
 	SendError(topic string, errorMsg string, logMsg string) error
@@ -27,14 +30,21 @@ type client struct {
 	conn     *websocket.Conn
 	send     chan []byte
 	wsServer *WebSocketServer
+	rooms    map[*Room]bool
 }
 
-func NewClient(id int, conn *websocket.Conn, wsServer *WebSocketServer) Client {
+func NewClient(
+	id int,
+	sendChan chan []byte,
+	conn *websocket.Conn,
+	wsServer *WebSocketServer,
+) Client {
 	return &client{
 		id,
 		conn,
-		make(chan []byte, 256),
+		sendChan,
 		wsServer,
+		make(map[*Room]bool, 0),
 	}
 }
 
@@ -42,25 +52,39 @@ func (c client) GetID() int {
 	return c.id
 }
 
-func (c client) Send(message []byte) {
-	c.send <- message
+func (c client) Subscribe(room *Room) {
+	c.rooms[room] = true
+	room.RegisterClient(c)
 }
 
-func (c client) SendError(topic string, errorMsg string, logMsg string) error {
-	errorMSG, err := NewOutboundMessage(
+func (c client) Unsubscribe(room *Room) {
+	if _, ok := c.rooms[room]; ok {
+		delete(c.rooms, room)
+	}
+	room.RegisterClient(c)
+}
+
+func (c client) SendBytes(bytes []byte) {
+	c.send <- bytes
+}
+
+func (c client) SendMessage(topic string, event string, payload interface{}, logFormat string) error {
+	message, err := NewOutboundMessage(
 		topic,
-		ErrorEvent,
-		errorMsg,
-	).ToJSON()
+		event,
+		payload,
+	).ToJSON(logFormat)
 
 	if err != nil {
-		log.Printf(logMsg, err)
 		return err
 	} else {
-		go c.Send(errorMSG)
+		go c.SendBytes(message)
 		return nil
 	}
+}
 
+func (c client) SendError(topic string, errorMsg string, logFormat string) error {
+	return c.SendMessage(topic, ErrorEvent, errorMsg, logFormat)
 }
 
 func (c client) handleClose(ctx context.Context, err error) {

@@ -41,27 +41,25 @@ func NewGameseeksHandler(
 		repo,
 	}
 
-	topic.RegisterEvent(domain_websocket.SubscribeEvent, handler.HandlerGetGameseeksList)
-	topic.RegisterEvent(domain_websocket.InsertEvent, handler.HandleGameseekInsert)
-
 	return handler
 }
 
-func (g GameseeksHandler) HandlerGetGameseeksList(ctx context.Context, _ *domain_websocket.Room, client domain_websocket.Client, _ []byte) error {
+func (g GameseeksHandler) HandlerGetGameseeksList(ctx context.Context, room *domain_websocket.Room, client domain_websocket.Client, _ []byte) error {
+	room.RegisterClient(client)
+
 	list, err := g.repo.List(ctx)
 	if err != nil {
 		log.Printf("%s : %v", "GameseeksHandler/HandlerGetGameseeksList/List/ShouldFindList", err)
 		return errors.New(fmt.Sprintf("There was an error retreiving game seeks. %v", err))
 	}
 
-	jsonData, err := json.Marshal(list)
-	if err != nil {
-		log.Printf("%s : %v", "GameseeksHandler/HandlerGetGameseeksList/List/ShouldEncodeIntoJson", err)
-		return errors.New(fmt.Sprintf("There was an error retreiving game seeks. %v", err))
-	}
-
-	client.Send(jsonData)
-	return nil
+	err = client.SendMessage(
+		topicName,
+		domain_websocket.InitEvent,
+		list,
+		"GameseeksHandler/HandlerGetGameseeksList/List/ShouldEncodeIntoJson : %v",
+	)
+	return err
 }
 
 func (g GameseeksHandler) HandleGameseekInsert(ctx context.Context, room *domain_websocket.Room, _ domain_websocket.Client, jsonGameseek []byte) error {
@@ -92,6 +90,26 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 		return err
 	}
 
+	whiteID, err := strconv.Atoi(game.WhiteID)
+	if err != nil {
+		log.Printf("unable to convert white id: %v to string", game.WhiteID)
+		return err
+	}
+	whiteClient, ok := g.topic.GetClient(whiteID)
+	if !ok {
+		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, whiteID, topicName))
+	}
+
+	blackID, err := strconv.Atoi(game.BlackID)
+	if err != nil {
+		log.Printf("unable to convert black id: %v to string", game.BlackID)
+		return err
+	}
+	blackClient, ok := g.topic.GetClient(blackID)
+	if !ok {
+		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, blackID, topicName))
+	}
+
 	gameID, deletedGameseeks, err := g.usecase.OnAccept(ctx, game)
 	if err != nil {
 		return err
@@ -99,59 +117,66 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 
 	game.ID = int(gameID)
 
-	whiteID, err := strconv.Atoi(game.WhiteID)
-	if err != nil {
-		return err
-	}
-	whiteClient, ok := g.topic.GetClient(whiteID)
-	if !ok {
-		return errors.New("")
-	}
-
-	blackID, err := strconv.Atoi(game.BlackID)
-	if err != nil {
-		return err
-	}
-	blackClient, ok := g.topic.GetClient(blackID)
-	if !ok {
-		return errors.New("")
-	}
-
 	jsonDeletedGameseeks, err := domain_websocket.NewOutboundMessage(
 		topicName,
 		"deletion",
 		deletedGameseeks).
-		ToJSON()
+		ToJSON("HandlerGameseeks/HandlerAcceptGameseek: error transforming message to json\nerr: %v")
 	if err != nil {
 		return err
 	}
 
-	jsonDataWhite, err := domain_websocket.NewOutboundMessage(
+	jsonWhiteMessage, err := domain_websocket.NewOutboundMessage(
 		topicName,
 		"accepted",
 		AcceptedGameseek{
 			game.ID,
 			domain.White,
 		}).
-		ToJSON()
+		ToJSON("HandlerGameseeks/HandlerAcceptGameseek: error transforming message to json\nerr: %v")
 	if err != nil {
 		return err
 	}
 
-	jsonDataBlack, err := domain_websocket.NewOutboundMessage(
+	jsonBlackMessage, err := domain_websocket.NewOutboundMessage(
 		topicName,
 		"accepted",
 		AcceptedGameseek{
 			game.ID,
 			domain.Black,
 		}).
-		ToJSON()
+		ToJSON("HandlerGameseeks/HandlerAcceptGameseek: error transforming message to json\nerr: %v")
 	if err != nil {
 		return err
 	}
 
-	whiteClient.Send(jsonDataWhite)
-	blackClient.Send(jsonDataBlack)
+	room.BroadcastMessage(jsonDeletedGameseeks)
+	whiteClient.SendBytes(jsonWhiteMessage)
+	blackClient.SendBytes(jsonBlackMessage)
+
+	return nil
+}
+
+func (g GameseeksHandler) HandlerOnUnsubscribe(
+	ctx context.Context,
+	room *domain_websocket.Room,
+	client domain_websocket.Client,
+	_ []byte,
+) error {
+	room.UnregisterClient(client)
+	deletedGameseeks, err := g.repo.DeleteFromSeeker(ctx, client.GetID())
+	if err != nil {
+		return err
+	}
+
+	jsonDeletedGameseeks, err := domain_websocket.NewOutboundMessage(
+		topicName,
+		"deletion",
+		deletedGameseeks).
+		ToJSON("HandlerGameseeks/HandlerOnUnsubscribe: error transforming message to json\nerr: %v")
+	if err != nil {
+		return err
+	}
 
 	room.BroadcastMessage(jsonDeletedGameseeks)
 
