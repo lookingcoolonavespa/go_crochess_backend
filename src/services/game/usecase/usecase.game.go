@@ -140,6 +140,7 @@ func (c gameUseCase) handleTimer(
 			}
 
 			updated, err := c.gameRepo.Update(ctx, gameID, version, changes)
+			fmt.Println(updated)
 			if updated && err == nil {
 				c.timerManager.StopAndDeleteTimer(gameID)
 				onTimeOut(changes)
@@ -184,7 +185,7 @@ func (c gameUseCase) UpdateOnMove(
 	} else {
 		timerDuration = intToMillisecondsDuration(g.BlackTime)
 	}
-	fmt.Printf("move: %s\nactive color: %s\n", move, activeColor.Name())
+
 	c.handleTimer(
 		context.Background(),
 		onTimeOut,
