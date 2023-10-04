@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
@@ -44,7 +45,12 @@ func NewGameseeksHandler(
 	return handler
 }
 
-func (g GameseeksHandler) HandlerGetGameseeksList(ctx context.Context, room *domain_websocket.Room, client domain_websocket.Client, _ []byte) error {
+func (g GameseeksHandler) HandlerGetGameseeksList(
+	ctx context.Context,
+	room *domain_websocket.Room,
+	client *domain_websocket.Client,
+	_ []byte,
+) error {
 	room.RegisterClient(client)
 
 	list, err := g.repo.List(ctx)
@@ -62,18 +68,47 @@ func (g GameseeksHandler) HandlerGetGameseeksList(ctx context.Context, room *dom
 	return err
 }
 
-func (g GameseeksHandler) HandleGameseekInsert(ctx context.Context, room *domain_websocket.Room, _ domain_websocket.Client, jsonGameseek []byte) error {
+func (g GameseeksHandler) HandleGameseekInsert(
+	ctx context.Context,
+	room *domain_websocket.Room,
+	client *domain_websocket.Client,
+	jsonGameseek []byte,
+) error {
 	var gs domain.Gameseek
 	if err := json.Unmarshal(jsonGameseek, &gs); err != nil {
-		return errors.New(fmt.Sprintf("Failed to decode request body: %v", err))
+		log.Printf("GameseeksHandler/HandleGameseekInsert, Failed to unmarshal message: %v\n", err)
+		return err
+	}
+
+	filled, missingFields := gs.IsFilled()
+	if !filled {
+		errorMessage := fmt.Sprintf("gameseek is missing the following fields: %v", strings.Join(missingFields, ", "))
+		err := client.SendError(
+			errorMessage,
+			"GameseeksHandler/HandleGameseekInsert, Failed to unmarshal message: %v\n",
+		)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(errorMessage)
 	}
 
 	err := g.repo.Insert(ctx, gs)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to save game seek: %v", err))
+		return errors.New(fmt.Sprintf("Failed to save gameseek: %v", err))
 	}
 
-	room.BroadcastMessage(jsonGameseek)
+	jsonMessage, err := domain_websocket.NewOutboundMessage(
+		topicName,
+		domain_websocket.InsertEvent,
+		gs,
+	).ToJSON("GameseeksHandler/HandleGameInsert, error converting message to json, err: %v")
+	if err != nil {
+		return err
+	}
+
+	room.BroadcastMessage(jsonMessage)
 
 	return nil
 }
@@ -81,13 +116,27 @@ func (g GameseeksHandler) HandleGameseekInsert(ctx context.Context, room *domain
 func (g GameseeksHandler) HandlerAcceptGameseek(
 	ctx context.Context,
 	room *domain_websocket.Room,
-	client domain_websocket.Client,
+	client *domain_websocket.Client,
 	payload []byte,
 ) error {
 	var game domain.Game
 	err := json.Unmarshal(payload, &game)
 	if err != nil {
 		return err
+	}
+
+	filled, missingFields := game.IsFilledForInsert()
+	if !filled {
+		errorMessage := fmt.Sprintf("game missing the following fields: %v", strings.Join(missingFields, ", "))
+		err := client.SendError(
+			errorMessage,
+			"GameseeksHandler/HandlerAcceptGameseek, Failed to unmarshal message: %v\n",
+		)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(errorMessage)
 	}
 
 	whiteID, err := strconv.Atoi(game.WhiteID)
@@ -127,7 +176,7 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 	}
 
 	jsonWhiteMessage, err := domain_websocket.NewOutboundMessage(
-		topicName,
+		fmt.Sprint("user/", topicName),
 		"accepted",
 		AcceptedGameseek{
 			game.ID,
@@ -139,7 +188,7 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 	}
 
 	jsonBlackMessage, err := domain_websocket.NewOutboundMessage(
-		topicName,
+		fmt.Sprint("user/", topicName),
 		"accepted",
 		AcceptedGameseek{
 			game.ID,
@@ -160,10 +209,11 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 func (g GameseeksHandler) HandlerOnUnsubscribe(
 	ctx context.Context,
 	room *domain_websocket.Room,
-	client domain_websocket.Client,
+	client *domain_websocket.Client,
 	_ []byte,
 ) error {
-	room.UnregisterClient(client)
+	client.Unsubscribe(room)
+
 	deletedGameseeks, err := g.repo.DeleteFromSeeker(ctx, client.GetID())
 	if err != nil {
 		return err

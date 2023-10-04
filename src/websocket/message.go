@@ -6,9 +6,21 @@ import (
 )
 
 type InboundMessage struct {
-	Room    string
-	Event   string
-	payload []byte
+	Topic   string          `json:"topic"`
+	Event   string          `json:"event"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+func (m InboundMessage) IsFilled() (bool, []string) {
+	missingFields := make([]string, 0)
+	if m.Topic == "" {
+		missingFields = append(missingFields, "topic")
+	}
+	if m.Event == "" {
+		missingFields = append(missingFields, "event")
+	}
+
+	return len(missingFields) == 0, missingFields
 }
 
 type OutboundMessage struct {

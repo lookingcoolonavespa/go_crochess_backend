@@ -2,6 +2,7 @@ package domain_websocket
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -30,18 +31,15 @@ func setupWebSocketRouter(t *testing.T, expected string) (WebSocketRouter, chan 
 	topic, err := NewTopic(testTopic)
 	assert.NoError(t, err)
 
-	payloadRegex, err := jsonRegex("payload")
+	var message InboundMessage
+	err = json.Unmarshal([]byte(expected), &message)
 	assert.NoError(t, err)
-
-	expectedPayload := payloadRegex.FindStringSubmatch(expected)
-	if len(expectedPayload) != 2 {
-		return WebSocketRouter{}, nil, errors.New("payload field is missing in expected")
-	}
+	expectedPayload := message.Payload
 
 	successChan := make(chan string)
 	successStr := "success"
-	mockHandleFunc := func(ctx context.Context, room *Room, client Client, payload []byte) error {
-		if string(payload) != expectedPayload[1] {
+	mockHandleFunc := func(ctx context.Context, room *Room, client *Client, payload []byte) error {
+		if string(payload) != string(expectedPayload) {
 			return errors.New(fmt.Sprintf("expected payload: %v\nreceived payload: %v", expectedPayload[1], (payload)))
 		}
 		go func() {

@@ -9,27 +9,26 @@ import (
 type TopicWithParam struct {
 	name      string
 	matcher   *regexp.Regexp
-	findParam func(bytes []byte) string
+	findParam func(string) string
 	rooms     map[string]*Room
 	events    map[string]TopicEventHandler
 }
 
-func (tp TopicWithParam) match(bytes []byte) bool {
-	return tp.matcher.Match(bytes)
+func (tp TopicWithParam) match(str string) bool {
+	return tp.matcher.MatchString(str)
 }
 
 func (tp TopicWithParam) HandleWSMessage(
 	ctx context.Context,
-	client Client,
+	client *Client,
 	event string,
 	payload []byte,
-	topicName []byte,
+	topicName string,
 ) error {
 	handleFunc, ok := tp.events[event]
 	if !ok {
 		err := client.SendError(
-			tp.name,
-			fmt.Sprintf("%s is not a registered event", event),
+			fmt.Sprintf(`"%s" is not a registered event in topic "%s"`, event, tp.name),
 			"TopicWithParam/HandleWSMessage: error transforming error message to json\nerr: %v",
 		)
 		return err
@@ -39,13 +38,12 @@ func (tp TopicWithParam) HandleWSMessage(
 	param := tp.findParam(topicName)
 	room, ok := tp.rooms[param]
 	if event == SubscribeEvent && !ok {
-		room = tp.PushNewRoom(param, []Client{client})
+		room = tp.PushNewRoom(param, []*Client{client})
 	}
 
 	_, subscribed := room.clients[client.GetID()]
 	if event != SubscribeEvent && !subscribed {
 		err := client.SendError(
-			tp.name,
 			fmt.Sprintf(`you are not subscribed to "%s/%s"`, tp.name, param),
 			"TopicWithParam/HandleWSMessage: error transforming error message to json\nerr: %v",
 		)
@@ -61,7 +59,7 @@ func (tp TopicWithParam) RegisterEvent(event string, handleFunc TopicEventHandle
 	tp.events[event] = handleFunc
 }
 
-func (tp TopicWithParam) PushNewRoom(param string, clients []Client) *Room {
+func (tp TopicWithParam) PushNewRoom(param string, clients []*Client) *Room {
 	room := NewRoom(clients, param)
 	tp.rooms[param] = room
 	return room

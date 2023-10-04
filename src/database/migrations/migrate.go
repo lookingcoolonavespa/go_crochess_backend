@@ -12,7 +12,7 @@ import (
 )
 
 func Up(db *sql.DB) error {
-	files, err := filepath.Glob("./database/migrations/*.sql")
+	files, err := filepath.Glob("./src/database/migrations/*.sql")
 	if err != nil {
 		return err
 

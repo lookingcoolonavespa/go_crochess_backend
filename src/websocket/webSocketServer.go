@@ -1,6 +1,7 @@
 package domain_websocket
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	"nhooyr.io/websocket"
 )
 
@@ -18,26 +20,17 @@ const (
 var clientID = 0
 
 type WebSocketServer struct {
-	Conns      map[Client]bool
-	register   chan Client
-	unregister chan Client
-	router     WebSocketRouter
-	mutex      sync.Mutex
+	conns         map[*Client]bool
+	router        WebSocketRouter
+	mutex         sync.Mutex
+	gameseeksRepo domain.GameseeksRepo
 }
 
-func NewWebSocketServer(r WebSocketRouter) WebSocketServer {
+func NewWebSocketServer(r WebSocketRouter, gameseeksRepo domain.GameseeksRepo) WebSocketServer {
 	return WebSocketServer{
-		Conns:      make(map[Client]bool),
-		register:   make(chan Client),
-		unregister: make(chan Client),
-		router:     r,
-	}
-}
-
-func (s *WebSocketServer) Run() {
-	select {
-	case client := <-s.unregister:
-		s.unregisterClient(client)
+		conns:         make(map[*Client]bool),
+		router:        r,
+		gameseeksRepo: gameseeksRepo,
 	}
 }
 
@@ -67,23 +60,40 @@ func (s *WebSocketServer) HandleWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	client := NewClient(userID, make(chan []byte), conn, s)
+	log.Println("client connected: ", userID)
 
 	go client.ReadPump(r.Context())
 	go client.WritePump(r.Context())
 
 	s.registerClient(client)
+
+	select {
+	case <-r.Context().Done():
+		{
+			fmt.Println("client disconnected")
+		}
+	}
 }
 
-func (s *WebSocketServer) registerClient(client Client) {
+func (s *WebSocketServer) registerClient(client *Client) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.Conns[client] = true
+	s.conns[client] = true
 }
 
-func (s *WebSocketServer) unregisterClient(client Client) {
-	if _, ok := s.Conns[client]; ok {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
-		delete(s.Conns, client)
+func (s *WebSocketServer) unregisterClient(ctx context.Context, client *Client) {
+	s.mutex.Lock()
+	if _, ok := s.conns[client]; ok {
+		delete(s.conns, client)
+	}
+	s.mutex.Unlock()
+
+	log.Println("unregistering client: ", client.GetID())
+	s.gameseeksRepo.DeleteFromSeeker(ctx, client.GetID())
+}
+
+func (s *WebSocketServer) Close() {
+	for client := range s.conns {
+		client.HandleClose(context.Background(), context.Canceled)
 	}
 }

@@ -140,7 +140,6 @@ func (c gameUseCase) handleTimer(
 			}
 
 			updated, err := c.gameRepo.Update(ctx, gameID, version, changes)
-			fmt.Println(updated)
 			if updated && err == nil {
 				c.timerManager.StopAndDeleteTimer(gameID)
 				onTimeOut(changes)

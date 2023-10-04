@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
 
 	"nhooyr.io/websocket"
 )
@@ -14,18 +13,7 @@ const (
 	NormalCloseMessage = "web socket connection closing gracefully..."
 )
 
-type Client interface {
-	GetID() int
-	Subscribe(*Room)
-	Unsubscribe(*Room)
-	SendBytes([]byte)
-	SendMessage(topic string, event string, payload interface{}, logMsg string) error
-	ReadPump(context.Context)
-	WritePump(context.Context)
-	SendError(topic string, errorMsg string, logMsg string) error
-}
-
-type client struct {
+type Client struct {
 	id       int
 	conn     *websocket.Conn
 	send     chan []byte
@@ -38,8 +26,8 @@ func NewClient(
 	sendChan chan []byte,
 	conn *websocket.Conn,
 	wsServer *WebSocketServer,
-) Client {
-	return &client{
+) *Client {
+	return &Client{
 		id,
 		conn,
 		sendChan,
@@ -48,27 +36,27 @@ func NewClient(
 	}
 }
 
-func (c client) GetID() int {
+func (c Client) GetID() int {
 	return c.id
 }
 
-func (c client) Subscribe(room *Room) {
+func (c *Client) Subscribe(room *Room) {
 	c.rooms[room] = true
 	room.RegisterClient(c)
 }
 
-func (c client) Unsubscribe(room *Room) {
+func (c *Client) Unsubscribe(room *Room) {
 	if _, ok := c.rooms[room]; ok {
 		delete(c.rooms, room)
 	}
-	room.RegisterClient(c)
+	room.UnregisterClient(c)
 }
 
-func (c client) SendBytes(bytes []byte) {
+func (c *Client) SendBytes(bytes []byte) {
 	c.send <- bytes
 }
 
-func (c client) SendMessage(topic string, event string, payload interface{}, logFormat string) error {
+func (c *Client) SendMessage(topic string, event string, payload interface{}, logFormat string) error {
 	message, err := NewOutboundMessage(
 		topic,
 		event,
@@ -83,17 +71,22 @@ func (c client) SendMessage(topic string, event string, payload interface{}, log
 	}
 }
 
-func (c client) SendError(topic string, errorMsg string, logFormat string) error {
-	return c.SendMessage(topic, ErrorEvent, errorMsg, logFormat)
+func (c *Client) SendError(errorMsg string, logFormat string) error {
+	return c.SendMessage(ErrorEvent, ErrorEvent, errorMsg, logFormat)
 }
 
-func (c client) handleClose(ctx context.Context, err error) {
+func (c *Client) HandleClose(ctx context.Context, err error) {
 	if err == nil {
 		return
 	}
 
 	defer func() {
-		c.wsServer.unregister <- c
+		c.wsServer.unregisterClient(ctx, c)
+		for room := range c.rooms {
+			if room != nil {
+				c.Unsubscribe(room)
+			}
+		}
 	}()
 
 	if errors.Is(err, context.Canceled) {
@@ -104,65 +97,61 @@ func (c client) handleClose(ctx context.Context, err error) {
 		c.conn.Close(websocket.CloseStatus(err), NormalCloseMessage)
 		return
 	} else if err != nil {
+		errorMessage, err := NewOutboundMessage(
+			"error",
+			ErrorEvent,
+			fmt.Sprintf("Something went wrong. Closing web socket connection. Error: %v", err),
+		).ToJSON("Client/HandleClose, error converting error messsage to json: %v")
+
 		c.conn.Write(
 			ctx,
 			websocket.MessageText,
-			[]byte(fmt.Sprintf("Something went wrong. Closing web socket connection. Error: %v", err)),
+			errorMessage,
 		)
-		log.Printf("closing websock connection\nerror: %v", err)
+		log.Printf("closing websock connection, error: %v", err)
 		c.conn.Close(websocket.StatusInternalError, "")
 		return
 	}
 }
 
-func (c client) ReadPump(
+func (c *Client) ReadPump(
 	ctx context.Context,
 ) {
 	for {
-		_, _, err := c.conn.Reader(ctx)
+		_, r, err := c.conn.Reader(ctx)
 		if err != nil {
-			c.handleClose(ctx, err)
+			c.HandleClose(ctx, err)
 			break
 		}
 		buffer := make([]byte, 10000)
+		messageLen, err := r.Read(buffer)
 		if err != nil {
-			c.handleClose(ctx, err)
+			c.HandleClose(ctx, err)
 			break
 		}
 
-		err = c.wsServer.router.HandleWSMessage(ctx, c, buffer)
+		err = c.wsServer.router.HandleWSMessage(ctx, c, buffer[0:messageLen])
 		if err != nil {
-			c.handleClose(ctx, err)
+			c.HandleClose(ctx, err)
 			break
 		}
 	}
 }
 
-func (c client) WritePump(ctx context.Context) {
-	pingTimer := time.NewTicker(PingPeriod)
-	defer func() {
-		pingTimer.Stop()
-	}()
+func (c *Client) WritePump(ctx context.Context) {
 	for {
 		select {
 		case message := <-c.send:
 			w, err := c.conn.Writer(ctx, websocket.MessageText)
 			if err != nil {
-				c.handleClose(ctx, err)
+				c.HandleClose(ctx, err)
 				return
 			}
 
 			w.Write(message)
 
 			if err := w.Close(); err != nil {
-				c.handleClose(ctx, err)
-				return
-			}
-
-		case <-pingTimer.C:
-			err := c.conn.Ping(ctx)
-			if err != nil {
-				c.handleClose(ctx, err)
+				c.HandleClose(ctx, err)
 				return
 			}
 		}

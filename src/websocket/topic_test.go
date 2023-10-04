@@ -54,43 +54,43 @@ func TestTopic_matcher(t *testing.T) {
 	tests := []struct {
 		name        string
 		basePattern string
-		testPattern []byte
+		testPattern string
 		expected    bool
 	}{
 		{
 			name:        "base:topic,test:topic",
 			basePattern: "topic",
-			testPattern: []byte("topic"),
+			testPattern: "topic",
 			expected:    true,
 		},
 		{
 			name:        "base:topic,test:topic/param",
 			basePattern: "topic",
-			testPattern: []byte("topic/param"),
+			testPattern: "topic/param",
 			expected:    false,
 		},
 		{
 			name:        "base:topic,test:topic/",
 			basePattern: "topic",
-			testPattern: []byte("topic/"),
+			testPattern: "topic/",
 			expected:    false,
 		},
 		{
 			name:        "base:topic,test:topica",
 			basePattern: "topic",
-			testPattern: []byte("topica"),
+			testPattern: "topica",
 			expected:    false,
 		},
 		{
 			name:        "base:topic/param,test:topic/param",
 			basePattern: "topic/param",
-			testPattern: []byte("topic/param"),
+			testPattern: "topic/param",
 			expected:    true,
 		},
 		{
 			name:        "base:topic/param,test:topic/",
 			basePattern: "topic/param",
-			testPattern: []byte("topic/"),
+			testPattern: "topic/",
 			expected:    false,
 		},
 	}
@@ -150,7 +150,7 @@ func TestTopic_TopicWithoutParam_HandleWSMessage(t *testing.T) {
 		assert.NoError(t, err)
 
 		msgChan := make(chan string)
-		handleFunc := func(context.Context, *Room, Client, []byte) error {
+		handleFunc := func(context.Context, *Room, *Client, []byte) error {
 			go func() {
 				msgChan <- successStr
 			}()
@@ -173,7 +173,7 @@ func TestTopic_TopicWithoutParam_HandleWSMessage(t *testing.T) {
 					client,
 					tt.testParams.Event,
 					[]byte{},
-					[]byte(tt.testParams.Pattern),
+					tt.testParams.Pattern,
 				)
 
 				select {
@@ -226,7 +226,7 @@ func TestTopic_TopicWithParam_HandleWSMessage(t *testing.T) {
 		assert.NoError(t, err)
 
 		msgChan := make(chan string)
-		handleFunc := func(context.Context, *Room, Client, []byte) error {
+		handleFunc := func(context.Context, *Room, *Client, []byte) error {
 			go func() {
 				msgChan <- successStr
 			}()
@@ -249,7 +249,7 @@ func TestTopic_TopicWithParam_HandleWSMessage(t *testing.T) {
 					client,
 					tt.testParams.Event,
 					[]byte{},
-					[]byte(tt.testParams.Pattern),
+					tt.testParams.Pattern,
 				)
 
 				select {

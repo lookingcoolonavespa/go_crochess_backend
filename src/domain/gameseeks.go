@@ -12,14 +12,29 @@ type (
 		Increment int    `json:"increment"`
 		Seeker    string `json:"seeker"`
 	}
+	GameseeksRepo interface {
+		List(context.Context) ([]Gameseek, error)
+		Insert(context.Context, Gameseek) error
+		DeleteFromSeeker(context.Context, int) ([]int, error)
+	}
+
+	GameseeksUseCase interface {
+		OnAccept(ctx context.Context, g Game) (gameID int, deletedGameseeks []int, err error)
+	}
 )
 
-type GameseeksRepo interface {
-	List(context.Context) ([]Gameseek, error)
-	Insert(context.Context, Gameseek) error
-	DeleteFromSeeker(context.Context, int) ([]int, error)
-}
+func (g Gameseek) IsFilled() (bool, []string) {
+	missingFields := make([]string, 0)
 
-type GameseeksUseCase interface {
-	OnAccept(ctx context.Context, g Game) (gameID int, deletedGameseeks []int, err error)
+	if g.Seeker == "" {
+		missingFields = append(missingFields, "seeker")
+	}
+	if g.Time == 0 {
+		missingFields = append(missingFields, "time")
+	}
+	if g.Color == "" {
+		missingFields = append(missingFields, "color")
+	}
+
+	return len(missingFields) == 0, missingFields
 }

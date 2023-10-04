@@ -82,7 +82,7 @@ func (c gameseeksRepo) Insert(ctx context.Context, gs domain.Gameseek) error {
         color,
         time,
         increment,
-        seeker,
+        seeker
     ) VALUES (
         $1, $2, $3, $4
     )`,

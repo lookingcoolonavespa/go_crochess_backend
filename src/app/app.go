@@ -19,7 +19,6 @@ import (
 	repository_gameseeks "github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/repository"
 	usecase_gameseeks "github.com/lookingcoolonavespa/go_crochess_backend/src/services/gameseeks/usecase"
 
-	// "github.com/lookingcoolonavespa/go_crochess_backend/database/migrations"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 	"github.com/spf13/viper"
 )
@@ -84,6 +83,7 @@ func initHandlers(db *sql.DB) {
 	gameseeksHandler := delivery_ws_gameseeks.NewGameseeksHandler(gameseeksRepo, gameseeksUseCase, gameseeksTopic)
 	gameseeksTopic.RegisterEvent(domain_websocket.SubscribeEvent, gameseeksHandler.HandlerGetGameseeksList)
 	gameseeksTopic.RegisterEvent(domain_websocket.InsertEvent, gameseeksHandler.HandleGameseekInsert)
+	gameseeksTopic.RegisterEvent(domain_websocket.UnsubscribeEvent, gameseeksHandler.HandlerOnUnsubscribe)
 
 	gameTopic, err := domain_websocket.NewTopic("game/id")
 	if err != nil {
@@ -102,7 +102,7 @@ func initHandlers(db *sql.DB) {
 	webSocketRouter.PushNewRoute(gameTopic)
 	webSocketRouter.PushNewRoute(gameseeksTopic)
 
-	webSocketServer := domain_websocket.NewWebSocketServer(webSocketRouter)
+	webSocketServer := domain_websocket.NewWebSocketServer(webSocketRouter, gameseeksRepo)
 
 	http.HandleFunc("/ws", webSocketServer.HandleWS)
 
@@ -124,6 +124,7 @@ func initHandlers(db *sql.DB) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	webSocketServer.Close()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown:", err)

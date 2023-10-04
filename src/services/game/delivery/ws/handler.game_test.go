@@ -35,7 +35,7 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 	testChan := make(chan []byte)
 	mockClient := domain_websocket.NewClient(0, testChan, nil, nil)
 
-	mockRoom := domain_websocket.NewRoom([]domain_websocket.Client{mockClient}, gameIDStr)
+	mockRoom := domain_websocket.NewRoom([]*domain_websocket.Client{mockClient}, gameIDStr)
 
 	err = h.HandlerOnSubscribe(context.Background(), mockRoom, mockClient, make([]byte, 0))
 	assert.NoError(t, err)

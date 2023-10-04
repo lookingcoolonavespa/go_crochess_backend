@@ -21,20 +21,17 @@ func NewGameHandler(
 	topic domain_websocket.TopicWithParam,
 	usecase domain.GameUseCase,
 ) GameHandler {
-	handler := GameHandler{
+	return GameHandler{
 		topic,
 		usecase,
 	}
 
-	topic.RegisterEvent(domain_websocket.SubscribeEvent, handler.HandlerOnSubscribe)
-
-	return handler
 }
 
 func (g GameHandler) HandlerOnSubscribe(
 	ctx context.Context,
 	room *domain_websocket.Room,
-	client domain_websocket.Client,
+	client *domain_websocket.Client,
 	_ []byte,
 ) error {
 	client.Subscribe(room)
@@ -70,7 +67,7 @@ func (g GameHandler) HandlerOnSubscribe(
 func (g GameHandler) HandlerOnUnsubscribe(
 	ctx context.Context,
 	room *domain_websocket.Room,
-	client domain_websocket.Client,
+	client *domain_websocket.Client,
 	_ []byte,
 ) error {
 	client.Unsubscribe(room)
