@@ -6,4 +6,5 @@ const (
 	InsertEvent      = "insert"
 	ErrorEvent       = "error"
 	InitEvent        = "init"
+	AcceptEvent      = "accepted"
 )

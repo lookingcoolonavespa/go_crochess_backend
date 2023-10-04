@@ -19,7 +19,7 @@ type (
 	}
 
 	GameseeksUseCase interface {
-		OnAccept(ctx context.Context, g Game) (gameID int, deletedGameseeks []int, err error)
+		OnAccept(ctx context.Context, g Game) (gameID int, err error)
 	}
 )
 

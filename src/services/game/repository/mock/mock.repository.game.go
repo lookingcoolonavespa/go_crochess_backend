@@ -31,13 +31,12 @@ func (c *GameMockRepo) Update(
 	return result.(bool), args.Error(1)
 }
 
-func (c *GameMockRepo) InsertAndDeleteGameseeks(
+func (c *GameMockRepo) Insert(
 	ctx context.Context,
 	g domain.Game,
-) (int, []int, error) {
+) (int, error) {
 	args := c.Called(ctx, g)
 	gameID := args.Get(0)
-	deletedGameseeks := args.Get(1)
 
-	return gameID.(int), deletedGameseeks.([]int), args.Error(2)
+	return gameID.(int), args.Error(1)
 }

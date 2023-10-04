@@ -5,13 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"regexp"
 	"time"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
-	services_database "github.com/lookingcoolonavespa/go_crochess_backend/src/services/database"
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 )
 
@@ -58,9 +56,8 @@ func (c gameRepo) Get(ctx context.Context, id int) (domain.Game, error) {
 	return game, nil
 }
 
-func (c gameRepo) insertWithDBExecutor(
+func (c gameRepo) Insert(
 	ctx context.Context,
-	db services_database.DBExecutor,
 	g domain.Game,
 ) (gameID int, err error) {
 	gameStmt := fmt.Sprintf(`
@@ -75,10 +72,10 @@ func (c gameRepo) insertWithDBExecutor(
         black_time
     ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8
-    )`,
+    ) RETURNING id`,
 	)
 
-	res, err := db.ExecContext(
+	rows, err := c.db.QueryContext(
 		ctx,
 		gameStmt,
 		&g.WhiteID,
@@ -93,61 +90,12 @@ func (c gameRepo) insertWithDBExecutor(
 	if err != nil {
 		return 0, err
 	}
-
-	gID, err := res.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-
-	return int(gID), nil
-}
-
-func (c gameRepo) InsertAndDeleteGameseeks(
-	ctx context.Context,
-	g domain.Game,
-) (gameID int, deletedGameseeks []int, err error) {
-	tx, err := c.db.BeginTx(ctx, nil)
-	if err != nil {
-		return -1, nil, err
-	}
-
-	gameID, err = c.insertWithDBExecutor(ctx, tx, g)
-	if err != nil {
-		tx.Rollback()
-		return -1, nil, err
-	}
-
-	sql := fmt.Sprintf(`
-    DELETE FROM gameseeks
-    WHERE seeker 
-    IN ( $1, $2 )
-    RETURNING id
-    `,
-	)
-
-	rows, err := tx.QueryContext(ctx, sql, g.WhiteID, g.BlackID)
-	if err != nil {
-		tx.Rollback()
-		return -1, nil, err
-	}
-
 	defer rows.Close()
 
-	deletedIDs := make([]int, 0)
-	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
-			log.Printf("Repository/Game/InsertAndDeleteGameseeks error scanning into id: %v", err)
-			tx.Rollback()
-			return -1, nil, err
-		}
-		deletedIDs = append(deletedIDs, id)
-	}
+	rows.Next()
+	rows.Scan(&gameID)
 
-	tx.Commit()
-
-	return int(gameID), deletedIDs, nil
-
+	return gameID, nil
 }
 
 func (c gameRepo) Update(

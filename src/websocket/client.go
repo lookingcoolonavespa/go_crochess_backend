@@ -40,9 +40,14 @@ func (c Client) GetID() int {
 	return c.id
 }
 
-func (c *Client) Subscribe(room *Room) {
+func (c *Client) Subscribe(room *Room) error {
+	err := room.RegisterClient(c)
+	if err != nil {
+		return err
+	}
 	c.rooms[room] = true
-	room.RegisterClient(c)
+
+	return nil
 }
 
 func (c *Client) Unsubscribe(room *Room) {
@@ -97,7 +102,13 @@ func (c *Client) HandleClose(ctx context.Context, err error) {
 		c.conn.Close(websocket.CloseStatus(err), NormalCloseMessage)
 		return
 	} else if err != nil {
-		errorMessage, err := NewOutboundMessage(
+		defer func() {
+			c.conn.Close(websocket.StatusInternalError, "")
+		}()
+
+		log.Printf("closing websocket connection, error: %v", err)
+
+		errorMessage, _ := NewOutboundMessage(
 			"error",
 			ErrorEvent,
 			fmt.Sprintf("Something went wrong. Closing web socket connection. Error: %v", err),
@@ -108,8 +119,6 @@ func (c *Client) HandleClose(ctx context.Context, err error) {
 			websocket.MessageText,
 			errorMessage,
 		)
-		log.Printf("closing websock connection, error: %v", err)
-		c.conn.Close(websocket.StatusInternalError, "")
 		return
 	}
 }

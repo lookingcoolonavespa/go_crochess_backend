@@ -43,27 +43,25 @@ func TestGameseeksUseCase_OnAccept(t *testing.T) {
 	mockGame.BlackTime = mockGame.Time
 
 	testGameID := 65
-	testDeletedGameseeks := []int{1, 2}
 	t.Run("Success", func(t *testing.T) {
-		mockGameRepo.On("InsertAndDeleteGameseeks", context.Background(), mockGame).
-			Return(testGameID, testDeletedGameseeks, nil).
+		mockGameRepo.On("Insert", context.Background(), mockGame).
+			Return(testGameID, nil).
 			Once()
 
-		gameID, deletedGameseeks, err := gameseeksUseCase.OnAccept(context.Background(), mockGame)
+		gameID, err := gameseeksUseCase.OnAccept(context.Background(), mockGame)
 		assert.NoError(t, err)
 
 		assert.Equal(t, testGameID, gameID)
-		assert.Equal(t, testDeletedGameseeks, deletedGameseeks)
 
 		mockGameRepo.AssertExpectations(t)
 	})
 
-	t.Run("Failed on InsertAndDeleteGameseeks", func(t *testing.T) {
-		mockGameRepo.On("InsertAndDeleteGameseeks", context.Background(), mockGame).
-			Return(-1, make([]int, 0), errors.New("Unexpected")).
+	t.Run("Failed", func(t *testing.T) {
+		mockGameRepo.On("Insert", context.Background(), mockGame).
+			Return(-1, errors.New("Unexpected")).
 			Once()
 
-		_, _, err := gameseeksUseCase.OnAccept(context.Background(), mockGame)
+		_, err := gameseeksUseCase.OnAccept(context.Background(), mockGame)
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)

@@ -109,7 +109,7 @@ func TestGameRepo_Update(t *testing.T) {
 	assert.True(t, updated)
 }
 
-func TestGameRepo_InsertAndDeleteGameseeks(t *testing.T) {
+func TestGameRepo_Insert(t *testing.T) {
 	db, mock := initMock()
 
 	defer db.Close()
@@ -126,14 +126,7 @@ func TestGameRepo_InsertAndDeleteGameseeks(t *testing.T) {
         black_time
     ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8
-    )`,
-	)
-
-	deleteQuery := fmt.Sprintf(`
-    DELETE FROM gameseeks
-    WHERE seeker 
-    IN ( $1, $2 )
-    RETURNING id`,
+    ) RETURNING id`,
 	)
 
 	expectedGameID := 64
@@ -147,8 +140,9 @@ func TestGameRepo_InsertAndDeleteGameseeks(t *testing.T) {
 	whiteTime := timeData
 	blackTime := timeData
 
-	mock.ExpectBegin()
-	mock.ExpectExec(insertStmt).
+	rows := sqlmock.NewRows([]string{"id"}).AddRow(expectedGameID)
+
+	mock.ExpectQuery(insertStmt).
 		WithArgs(
 			whiteID,
 			blackID,
@@ -159,18 +153,11 @@ func TestGameRepo_InsertAndDeleteGameseeks(t *testing.T) {
 			whiteTime,
 			blackTime,
 		).
-		WillReturnResult(sqlmock.NewResult(int64(expectedGameID), 1))
-
-	rows := sqlmock.NewRows([]string{"id"}).
-		AddRow(0).
-		AddRow(1)
-	mock.ExpectQuery(deleteQuery).
-		WithArgs(whiteID, blackID).
 		WillReturnRows(rows)
 
 	r := NewGameRepo(db)
 
-	gameID, deletedGameseeks, err := r.InsertAndDeleteGameseeks(
+	gameID, err := r.Insert(
 		context.Background(),
 		domain.Game{
 			WhiteID:              whiteID,
@@ -185,6 +172,4 @@ func TestGameRepo_InsertAndDeleteGameseeks(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedGameID, gameID)
-	assert.NotNil(t, deletedGameseeks)
-	assert.Len(t, deletedGameseeks, 2)
 }

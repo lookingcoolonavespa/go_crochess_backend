@@ -33,10 +33,10 @@ type (
 			version int,
 			changes utils.Changes,
 		) (updated bool, err error)
-		InsertAndDeleteGameseeks(
+		Insert(
 			ctx context.Context,
 			g Game,
-		) (gameID int, deletedGameseeks []int, err error)
+		) (gameID int, err error)
 	}
 
 	GameUseCase interface {
@@ -57,7 +57,7 @@ func (g Game) IsFilledForInsert() (bool, []string) {
 		missingFields = append(missingFields, "whiteID")
 	}
 	if g.BlackID == "" {
-		missingFields = append(missingFields, "whiteID")
+		missingFields = append(missingFields, "blackID")
 	}
 	if g.Time == 0 {
 		missingFields = append(missingFields, "whiteID")

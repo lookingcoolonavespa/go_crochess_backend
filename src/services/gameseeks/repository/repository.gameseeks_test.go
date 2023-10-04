@@ -55,7 +55,7 @@ func TestGameseeksRepository_Insert(t *testing.T) {
         color,
         time,
         increment,
-        seeker,
+        seeker
     ) VALUES (
         $1, $2, $3, $4
     )`,

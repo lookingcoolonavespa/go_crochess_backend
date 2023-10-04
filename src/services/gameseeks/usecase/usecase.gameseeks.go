@@ -26,15 +26,15 @@ func NewGameseeksUseCase(
 func (c gameseeksUseCase) OnAccept(
 	ctx context.Context,
 	g domain.Game,
-) (gameID int, deletedGameseeks []int, err error) {
+) (gameID int, err error) {
 	g.TimeStampAtTurnStart = time.Now().Unix()
 	g.WhiteTime = g.Time
 	g.BlackTime = g.Time
 
-	gameID, deletedGameseeks, err = c.gameRepo.InsertAndDeleteGameseeks(ctx, g)
+	gameID, err = c.gameRepo.Insert(ctx, g)
 	if err != nil {
-		return -1, nil, err
+		return -1, err
 	}
 
-	return gameID, deletedGameseeks, nil
+	return gameID, nil
 }

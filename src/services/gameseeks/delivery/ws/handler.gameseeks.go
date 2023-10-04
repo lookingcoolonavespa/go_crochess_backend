@@ -15,11 +15,6 @@ import (
 
 const topicName = "gameseeks"
 
-// events
-const (
-	AcceptEvent = "accept"
-)
-
 type GameseeksHandler struct {
 	topic   domain_websocket.TopicWithoutParm
 	usecase domain.GameseeksUseCase
@@ -27,8 +22,8 @@ type GameseeksHandler struct {
 }
 
 type AcceptedGameseek struct {
-	GameID      int
-	PlayerColor domain.Color
+	GameID      int          `json:"game_id"`
+	PlayerColor domain.Color `json:"playerColor"`
 }
 
 func NewGameseeksHandler(
@@ -51,7 +46,7 @@ func (g GameseeksHandler) HandlerGetGameseeksList(
 	client *domain_websocket.Client,
 	_ []byte,
 ) error {
-	room.RegisterClient(client)
+	err := client.Subscribe(room)
 
 	list, err := g.repo.List(ctx)
 	if err != nil {
@@ -159,25 +154,16 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, blackID, topicName))
 	}
 
-	gameID, deletedGameseeks, err := g.usecase.OnAccept(ctx, game)
+	gameID, err := g.usecase.OnAccept(ctx, game)
 	if err != nil {
 		return err
 	}
 
 	game.ID = int(gameID)
 
-	jsonDeletedGameseeks, err := domain_websocket.NewOutboundMessage(
-		topicName,
-		"deletion",
-		deletedGameseeks).
-		ToJSON("HandlerGameseeks/HandlerAcceptGameseek: error transforming message to json\nerr: %v")
-	if err != nil {
-		return err
-	}
-
 	jsonWhiteMessage, err := domain_websocket.NewOutboundMessage(
-		fmt.Sprint("user/", topicName),
-		"accepted",
+		topicName,
+		domain_websocket.AcceptEvent,
 		AcceptedGameseek{
 			game.ID,
 			domain.White,
@@ -188,8 +174,8 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 	}
 
 	jsonBlackMessage, err := domain_websocket.NewOutboundMessage(
-		fmt.Sprint("user/", topicName),
-		"accepted",
+		topicName,
+		domain_websocket.AcceptEvent,
 		AcceptedGameseek{
 			game.ID,
 			domain.Black,
@@ -199,7 +185,6 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 		return err
 	}
 
-	room.BroadcastMessage(jsonDeletedGameseeks)
 	whiteClient.SendBytes(jsonWhiteMessage)
 	blackClient.SendBytes(jsonBlackMessage)
 

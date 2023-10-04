@@ -84,6 +84,7 @@ func initHandlers(db *sql.DB) {
 	gameseeksTopic.RegisterEvent(domain_websocket.SubscribeEvent, gameseeksHandler.HandlerGetGameseeksList)
 	gameseeksTopic.RegisterEvent(domain_websocket.InsertEvent, gameseeksHandler.HandleGameseekInsert)
 	gameseeksTopic.RegisterEvent(domain_websocket.UnsubscribeEvent, gameseeksHandler.HandlerOnUnsubscribe)
+	gameseeksTopic.RegisterEvent(domain_websocket.AcceptEvent, gameseeksHandler.HandlerAcceptGameseek)
 
 	gameTopic, err := domain_websocket.NewTopic("game/id")
 	if err != nil {

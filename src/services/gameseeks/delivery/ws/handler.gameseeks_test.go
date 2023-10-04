@@ -76,7 +76,7 @@ func TestGameseeksHandler_HandlerInsertGameseek(t *testing.T) {
 	err = r.HandleGameseekInsert(context.Background(), room, nil, jsonData)
 
 	receivedMessage := <-testChannel
-	assert.Equal(t, jsonData, receivedMessage)
+	assert.Contains(t, string(receivedMessage), string(jsonData))
 
 	mockRepo.AssertExpectations(t)
 }
