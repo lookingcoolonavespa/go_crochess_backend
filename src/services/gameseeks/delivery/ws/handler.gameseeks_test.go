@@ -33,7 +33,7 @@ func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
 	r := NewGameseeksHandler(mockRepo, mockUseCase, topic)
 
 	messageChan := make(chan []byte)
-	client := domain_websocket.NewClient(0, messageChan, nil, nil)
+	client := domain_websocket.NewClient("0", messageChan, nil, nil)
 
 	room := domain_websocket.NewRoom(make([]*domain_websocket.Client, 0), "")
 	err = r.HandlerGetGameseeksList(context.Background(), room, client, nil)
@@ -70,7 +70,7 @@ func TestGameseeksHandler_HandlerInsertGameseek(t *testing.T) {
 	assert.NoError(t, err)
 
 	testChannel := make(chan []byte)
-	client := domain_websocket.NewClient(0, testChannel, nil, nil)
+	client := domain_websocket.NewClient("0", testChannel, nil, nil)
 	room := domain_websocket.NewRoom([]*domain_websocket.Client{client}, "")
 
 	err = r.HandleGameseekInsert(context.Background(), room, nil, jsonData)

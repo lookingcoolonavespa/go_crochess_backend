@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
@@ -134,24 +133,14 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 		return errors.New(errorMessage)
 	}
 
-	whiteID, err := strconv.Atoi(game.WhiteID)
-	if err != nil {
-		log.Printf("unable to convert white id: %v to string", game.WhiteID)
-		return err
-	}
-	whiteClient, ok := g.topic.GetClient(whiteID)
+	whiteClient, ok := g.topic.GetClient(game.WhiteID)
 	if !ok {
-		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, whiteID, topicName))
+		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, game.WhiteID, topicName))
 	}
 
-	blackID, err := strconv.Atoi(game.BlackID)
-	if err != nil {
-		log.Printf("unable to convert black id: %v to string", game.BlackID)
-		return err
-	}
-	blackClient, ok := g.topic.GetClient(blackID)
+	blackClient, ok := g.topic.GetClient(game.BlackID)
 	if !ok {
-		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, blackID, topicName))
+		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, game.BlackID, topicName))
 	}
 
 	gameID, err := g.usecase.OnAccept(ctx, game)

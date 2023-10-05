@@ -14,6 +14,8 @@ import (
 	"github.com/notnil/chess"
 )
 
+var timeNow = time.Now
+
 type gameUseCase struct {
 	db           *sql.DB
 	gameRepo     domain.GameRepo
@@ -86,7 +88,7 @@ func makeMove(
 
 	}
 
-	timeSpent := time.Now().Unix() - g.TimeStampAtTurnStart
+	timeSpent := timeNow().UnixMilli() - g.TimeStampAtTurnStart
 
 	var activeTime int
 	var fieldOfActiveTime string
@@ -100,7 +102,7 @@ func makeMove(
 
 	base := activeTime - int(timeSpent)
 	changes[fieldOfActiveTime] = base + (g.Increment * 1000)
-	changes["TimeStampAtTurnStart"] = time.Now().Unix()
+	changes["TimeStampAtTurnStart"] = timeNow().UnixMilli()
 
 	if len(g.Moves) > 0 {
 		changes["Moves"] = g.Moves + fmt.Sprintf(" %s", move)
@@ -177,13 +179,14 @@ func (c gameUseCase) UpdateOnMove(
 		return nil, err
 	}
 
-	_, gameOver := changes["Outcome"]
 	var timerDuration time.Duration
 	if activeColor == chess.White {
 		timerDuration = intToMillisecondsDuration(g.WhiteTime)
 	} else {
 		timerDuration = intToMillisecondsDuration(g.BlackTime)
 	}
+
+	_, gameOver := changes["Result"]
 
 	c.handleTimer(
 		context.Background(),

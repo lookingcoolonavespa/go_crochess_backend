@@ -83,7 +83,7 @@ func (c gameRepo) Insert(
 		&g.Time,
 		&g.Increment,
 		1,
-		time.Now().Unix(),
+		time.Now().UnixMilli(),
 		&g.Time,
 		&g.Time,
 	)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/database"
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/database/migrations"
 	delivery_ws_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/delivery/ws"
 	repository_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/repository"
 	usecase_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/usecase"
@@ -63,10 +64,10 @@ func initDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	// err = migrations.Up(db)
-	// if err != nil {
-	// 	log.Fatalf("error on migratre schema: %v", err)
-	// }
+	err = migrations.Up(db)
+	if err != nil {
+		log.Fatalf("error on migratre schema: %v", err)
+	}
 
 	return db, nil
 }
@@ -92,8 +93,12 @@ func initHandlers(db *sql.DB) {
 		return
 	}
 	gameUseCase := usecase_game.NewGameUseCase(db, gameRepo)
-	gameHandler := delivery_ws_game.NewGameHandler(gameTopic.(domain_websocket.TopicWithParam), gameUseCase)
+	gameHandler := delivery_ws_game.NewGameHandler(
+		gameTopic.(domain_websocket.TopicWithParam),
+		gameUseCase,
+	)
 	gameTopic.RegisterEvent(domain_websocket.SubscribeEvent, gameHandler.HandlerOnSubscribe)
+	gameTopic.RegisterEvent(domain_websocket.UnsubscribeEvent, gameHandler.HandlerOnUnsubscribe)
 
 	webSocketRouter, err := domain_websocket.NewWebSocketRouter()
 	if err != nil {

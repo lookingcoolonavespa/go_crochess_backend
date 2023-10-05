@@ -7,13 +7,13 @@ import (
 )
 
 type Room struct {
-	clients map[int]*Client
+	clients map[string]*Client
 	param   string
 	mutex   sync.Mutex
 }
 
 func NewRoom(clients []*Client, param string) *Room {
-	clientMap := make(map[int]*Client)
+	clientMap := make(map[string]*Client)
 	for _, client := range clients {
 		clientMap[client.GetID()] = client
 	}
@@ -25,6 +25,8 @@ func NewRoom(clients []*Client, param string) *Room {
 }
 
 func (r *Room) BroadcastMessage(message []byte) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	for _, client := range r.clients {
 		go client.SendBytes(message)
 	}
@@ -35,7 +37,7 @@ func (r *Room) RegisterClient(client *Client) error {
 	defer r.mutex.Unlock()
 	_, ok := r.clients[client.GetID()]
 	if ok {
-		return errors.New(fmt.Sprintf(`a client with the id "%d" already exists`, client.GetID()))
+		return errors.New(fmt.Sprintf(`a client with the id "%s" already exists`, client.GetID()))
 	}
 
 	r.clients[client.GetID()] = client

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -16,8 +15,6 @@ import (
 const (
 	PingPeriod = time.Second * 30
 )
-
-var clientID = 0
 
 type WebSocketServer struct {
 	conns         map[*Client]bool
@@ -46,21 +43,9 @@ func (s *WebSocketServer) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userID int
 	uid := r.URL.Query().Get("uid")
-	if uid == "" {
-		userID = clientID
-		clientID += 1
-	} else {
-		userID, err = strconv.Atoi(uid)
-		if err != nil {
-			log.Printf("error parsing user id when connecting: %v", err)
-			conn.Close(websocket.StatusInternalError, fmt.Sprintf(`"%s" is not a valid uid`, uid))
-			return
-		}
-	}
-	client := NewClient(userID, make(chan []byte), conn, s)
-	log.Println("client connected: ", userID)
+	client := NewClient(uid, make(chan []byte), conn, s)
+	log.Println("client connected: ", uid)
 
 	go client.ReadPump(r.Context())
 	go client.WritePump(r.Context())

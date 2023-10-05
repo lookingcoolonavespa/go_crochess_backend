@@ -47,7 +47,7 @@ func TestGameRepo_Get(t *testing.T) {
 		"white_draw_status",
 		"black_draw_status",
 	}).
-		AddRow(gameID, "faa", "fab", 5000, 0, "", "", 0, time.Now().Unix(), 5000, 5000, "", "", false, true)
+		AddRow(gameID, 4, 5, 5000, 0, "", "", 0, time.Now().UnixMilli(), 5000, 5000, "", "", false, true)
 
 	query :=
 		fmt.Sprintf(
@@ -131,12 +131,12 @@ func TestGameRepo_Insert(t *testing.T) {
 
 	expectedGameID := 64
 
-	whiteID := "four"
-	blackID := "five"
+	whiteID := "4"
+	blackID := "5"
 	timeData := 5000
 	increment := 5
 	version := 1
-	timeStampAtTurnStart := time.Now().Unix()
+	timeStampAtTurnStart := time.Now().UnixMilli()
 	whiteTime := timeData
 	blackTime := timeData
 

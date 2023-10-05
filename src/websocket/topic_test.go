@@ -162,7 +162,7 @@ func TestTopic_TopicWithoutParam_HandleWSMessage(t *testing.T) {
 	}
 
 	clientChan := make(chan []byte)
-	client := NewClient(0, clientChan, nil, nil)
+	client := NewClient("0", clientChan, nil, nil)
 	for _, tt := range tests {
 		t.Run(
 			tt.name,
@@ -238,7 +238,7 @@ func TestTopic_TopicWithParam_HandleWSMessage(t *testing.T) {
 	}
 
 	clientChan := make(chan []byte)
-	client := NewClient(0, clientChan, nil, nil)
+	client := NewClient("0", clientChan, nil, nil)
 	for _, tt := range tests {
 		t.Run(
 			tt.name,

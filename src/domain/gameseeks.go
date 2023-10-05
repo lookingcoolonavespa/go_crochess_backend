@@ -15,7 +15,7 @@ type (
 	GameseeksRepo interface {
 		List(context.Context) ([]Gameseek, error)
 		Insert(context.Context, Gameseek) error
-		DeleteFromSeeker(context.Context, int) ([]int, error)
+		DeleteFromSeeker(context.Context, string) ([]int, error)
 	}
 
 	GameseeksUseCase interface {

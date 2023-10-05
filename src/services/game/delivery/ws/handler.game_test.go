@@ -33,7 +33,7 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 	h := NewGameHandler(topic.(domain_websocket.TopicWithParam), mockUseCase)
 
 	testChan := make(chan []byte)
-	mockClient := domain_websocket.NewClient(0, testChan, nil, nil)
+	mockClient := domain_websocket.NewClient("0", testChan, nil, nil)
 
 	mockRoom := domain_websocket.NewRoom([]*domain_websocket.Client{mockClient}, gameIDStr)
 

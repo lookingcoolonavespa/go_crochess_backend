@@ -104,7 +104,7 @@ func TestWebSocketRouter_HandleWSMessage(t *testing.T) {
 
 				r.HandleWSMessage(
 					context.Background(),
-					NewClient(0, errChan, nil, nil),
+					NewClient("0", errChan, nil, nil),
 					[]byte(tt.expected),
 				)
 

@@ -50,7 +50,7 @@ func (twp TopicWithoutParm) RegisterEvent(event string, handleFunc TopicEventHan
 	twp.events[event] = handleFunc
 }
 
-func (twp TopicWithoutParm) GetClient(id int) (*Client, bool) {
+func (twp TopicWithoutParm) GetClient(id string) (*Client, bool) {
 	client, ok := twp.room.clients[id]
 	return client, ok
 }

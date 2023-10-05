@@ -14,7 +14,7 @@ const (
 )
 
 type Client struct {
-	id       int
+	id       string
 	conn     *websocket.Conn
 	send     chan []byte
 	wsServer *WebSocketServer
@@ -22,7 +22,7 @@ type Client struct {
 }
 
 func NewClient(
-	id int,
+	id string,
 	sendChan chan []byte,
 	conn *websocket.Conn,
 	wsServer *WebSocketServer,
@@ -36,7 +36,7 @@ func NewClient(
 	}
 }
 
-func (c Client) GetID() int {
+func (c Client) GetID() string {
 	return c.id
 }
 

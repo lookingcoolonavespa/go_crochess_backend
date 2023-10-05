@@ -27,7 +27,7 @@ func (c gameseeksUseCase) OnAccept(
 	ctx context.Context,
 	g domain.Game,
 ) (gameID int, err error) {
-	g.TimeStampAtTurnStart = time.Now().Unix()
+	g.TimeStampAtTurnStart = time.Now().UnixMilli()
 	g.WhiteTime = g.Time
 	g.BlackTime = g.Time
 

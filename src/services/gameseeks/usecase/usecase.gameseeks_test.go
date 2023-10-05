@@ -34,11 +34,11 @@ func TestGameseeksUseCase_OnAccept(t *testing.T) {
 	err := faker.FakeData(&mockGame)
 	assert.NoError(t, err)
 
-	blackID := "blackid"
-	whiteID := "whiteid"
+	blackID := "4"
+	whiteID := "5"
 	mockGame.BlackID = blackID
 	mockGame.WhiteID = whiteID
-	mockGame.TimeStampAtTurnStart = time.Now().Unix()
+	mockGame.TimeStampAtTurnStart = time.Now().UnixMilli()
 	mockGame.WhiteTime = mockGame.Time
 	mockGame.BlackTime = mockGame.Time
 

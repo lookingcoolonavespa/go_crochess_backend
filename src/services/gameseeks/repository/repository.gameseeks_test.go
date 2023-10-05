@@ -27,8 +27,8 @@ func TestGameseeksRepository_List(t *testing.T) {
 	defer db.Close()
 
 	rows := sqlmock.NewRows([]string{"id", "color", "time", "increment", "seeker"}).
-		AddRow(0, "black", 3000, 0, "abcd").
-		AddRow(1, "white", 5000, 5, "efgh")
+		AddRow(0, "black", 3000, 0, 5).
+		AddRow(1, "white", 5000, 5, 2)
 
 	query := fmt.Sprintf(
 		`SELECT * FROM gameseeks`,
@@ -64,7 +64,7 @@ func TestGameseeksRepository_Insert(t *testing.T) {
 	color := "black"
 	time := 30000
 	increment := 5
-	seeker := "fdafea"
+	seeker := "4"
 
 	mock.ExpectExec(stmt).WithArgs(color, time, increment, seeker).
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -92,7 +92,7 @@ func TestGameseeksRepository_DeleteFromSeeker(t *testing.T) {
 		AddRow(0).
 		AddRow(1)
 
-	seeker := 5
+	seeker := "5"
 	query := fmt.Sprintf(`
     DELETE FROM gameseeks
     WHERE seeker = $1
