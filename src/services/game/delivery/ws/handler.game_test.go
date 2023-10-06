@@ -2,7 +2,6 @@ package delivery_ws_game
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGameHandler_HandlerGetGame(t *testing.T) {
+func TestGameHandler_HandlerOnSubscribe(t *testing.T) {
 	var mockGame domain.Game
 
 	err := faker.FakeData(&mockGame)
@@ -27,17 +26,14 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 
 	gameIDStr := strconv.Itoa(gameID)
 
-	topic, err := domain_websocket.NewTopic(fmt.Sprintf("game/%s", gameIDStr))
-	assert.NoError(t, err)
-
-	h := NewGameHandler(topic.(domain_websocket.TopicWithParam), mockUseCase)
+	h := NewGameHandler(mockUseCase)
 
 	testChan := make(chan []byte)
-	mockClient := domain_websocket.NewClient("0", testChan, nil, nil)
+	client := domain_websocket.NewClient("0", testChan, nil, nil)
 
-	mockRoom := domain_websocket.NewRoom([]*domain_websocket.Client{mockClient}, gameIDStr)
+	room := domain_websocket.NewRoom([]*domain_websocket.Client{}, gameIDStr)
 
-	err = h.HandlerOnSubscribe(context.Background(), mockRoom, mockClient, make([]byte, 0))
+	err = h.HandlerOnSubscribe(context.Background(), room, client, make([]byte, 0))
 	assert.NoError(t, err)
 
 	select {
@@ -45,4 +41,28 @@ func TestGameHandler_HandlerGetGame(t *testing.T) {
 		assert.Contains(t, string(message), gameIDStr)
 		assert.Contains(t, string(message), domain_websocket.InitEvent)
 	}
+
+	_, subscribed := room.GetClient(client.GetID())
+	assert.True(t, subscribed)
+}
+
+func TestGameHandler_HandlerOnUnsubscribe(t *testing.T) {
+	gameID := 516
+
+	mockUseCase := new(mock_usecase_game.MockGameUseCase)
+
+	gameIDStr := strconv.Itoa(gameID)
+
+	h := NewGameHandler(mockUseCase)
+
+	testChan := make(chan []byte)
+	client := domain_websocket.NewClient("0", testChan, nil, nil)
+
+	room := domain_websocket.NewRoom([]*domain_websocket.Client{client}, gameIDStr)
+
+	err := h.HandlerOnUnsubscribe(context.Background(), room, client, make([]byte, 0))
+	assert.NoError(t, err)
+
+	_, subscribed := room.GetClient(client.GetID())
+	assert.False(t, subscribed)
 }

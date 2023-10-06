@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
+func TestGameseeksHandler_HandlerOnSubscribe(t *testing.T) {
 	var mockGameseek domain.Gameseek
 
 	err := faker.FakeData(&mockGameseek)
@@ -28,15 +28,13 @@ func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
 
 	mockRepo.On("List", context.Background()).Return(mockGameseeks, nil).Once()
 
-	topic, err := domain_websocket.NewTopic("topic")
-	assert.NoError(t, err)
-	r := NewGameseeksHandler(mockRepo, mockUseCase, topic)
+	r := NewGameseeksHandler(mockRepo, mockUseCase)
 
 	messageChan := make(chan []byte)
 	client := domain_websocket.NewClient("0", messageChan, nil, nil)
 
 	room := domain_websocket.NewRoom(make([]*domain_websocket.Client, 0), "")
-	err = r.HandlerGetGameseeksList(context.Background(), room, client, nil)
+	err = r.HandlerOnSubscribe(context.Background(), room, client, nil)
 	assert.NoError(t, err)
 
 	select {
@@ -46,6 +44,9 @@ func TestGameseeksHandler_HandlerGetGameseeksList(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Fatal("TestGameseeksHandler_HandlerGetGameseeksList hanging waiting for message")
 	}
+
+	_, subscribed := room.GetClient(client.GetID())
+	assert.True(t, subscribed)
 
 	mockRepo.AssertExpectations(t)
 }
@@ -61,10 +62,7 @@ func TestGameseeksHandler_HandlerInsertGameseek(t *testing.T) {
 
 	mockRepo.On("Insert", context.Background(), mockGameseek).Return(nil).Once()
 
-	topic, err := domain_websocket.NewTopic("topic")
-	assert.NoError(t, err)
-
-	r := NewGameseeksHandler(mockRepo, mockUseCase, topic)
+	r := NewGameseeksHandler(mockRepo, mockUseCase)
 
 	jsonData, err := json.Marshal(mockGameseek)
 	assert.NoError(t, err)
@@ -77,6 +75,47 @@ func TestGameseeksHandler_HandlerInsertGameseek(t *testing.T) {
 
 	receivedMessage := <-testChannel
 	assert.Contains(t, string(receivedMessage), string(jsonData))
+
+	mockRepo.AssertExpectations(t)
+}
+
+func TestGameseeksHandler_HandlerOnUnsubscribe(t *testing.T) {
+	mockRepo := new(repository_gameseeks_mock.GameseeksMockRepo)
+	mockUseCase := new(mock_usecase_gameseeks.GameseeksMockUseCase)
+
+	unsubscribedChannel := make(chan []byte)
+	unsubscribeClient := domain_websocket.NewClient("0", unsubscribedChannel, nil, nil)
+
+	deletedGameseeks := []int{1, 2}
+	mockRepo.On("DeleteFromSeeker", context.Background(), unsubscribeClient.GetID()).
+		Return(deletedGameseeks, nil).
+		Once()
+
+	r := NewGameseeksHandler(mockRepo, mockUseCase)
+
+	subscribedChannel := make(chan []byte)
+	subscribedClient := domain_websocket.NewClient("0", subscribedChannel, nil, nil)
+	room := domain_websocket.NewRoom(
+		[]*domain_websocket.Client{unsubscribeClient, subscribedClient},
+		"",
+	)
+
+	err := r.HandlerOnUnsubscribe(context.Background(), room, unsubscribeClient, []byte{})
+	assert.NoError(t, err)
+
+	timeOutChan := make(chan string)
+	time.AfterFunc(time.Second*2, func() { timeOutChan <- "time out" })
+	select {
+	case receivedMessage := <-subscribedChannel:
+		assert.Contains(t, string(receivedMessage), string(domain_websocket.DeletionEvent))
+	case <-unsubscribedChannel:
+		assert.Fail(t, "unsubscribed channel received message")
+	case <-timeOutChan:
+		break
+	}
+
+	_, subscribed := room.GetClient(unsubscribeClient.GetID())
+	assert.False(t, subscribed)
 
 	mockRepo.AssertExpectations(t)
 }

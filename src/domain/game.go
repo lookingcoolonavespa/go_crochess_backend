@@ -6,6 +6,26 @@ import (
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 )
 
+type GameFieldJsonTag string
+
+const (
+	GameIdJsonTag              GameFieldJsonTag = "id"
+	GameWhiteIDJsonTag                          = "white_id"
+	GameBlackIDJsonTag                          = "black_id"
+	GameTimeJsonTag                             = "time"
+	GameIncrementJsonTag                        = "increment"
+	GameTimeStampJsonTag                        = "time_stamp_at_turn_start"
+	GameWhiteTimeJsonTag                        = "white_time"
+	GameBlackTimeJsonTag                        = "black_time"
+	GameHistoryJsonTag                          = "history"
+	GameMovesJsonTag                            = "moves"
+	GameResultJsonTag                           = "result"
+	GameMethodJsonTag                           = "method"
+	GameVersionJsonTag                          = "version"
+	GameWhiteDrawStatusJsonTag                  = "white_draw_status"
+	GameBlackDrawStatusJsonTag                  = "black_draw_status"
+)
+
 type (
 	Game struct {
 		ID                   int    `json:"id"`
@@ -31,7 +51,7 @@ type (
 			ctx context.Context,
 			id int,
 			version int,
-			changes utils.Changes,
+			changes utils.Changes[GameFieldJsonTag],
 		) (updated bool, err error)
 		Insert(
 			ctx context.Context,
@@ -46,8 +66,20 @@ type (
 			gameID int,
 			playerID string,
 			move string,
-			onTimeOut func(utils.Changes),
-		) (utils.Changes, error)
+			onTimeOut func(utils.Changes[GameFieldJsonTag]),
+		) (changes utils.Changes[GameFieldJsonTag], updated bool, err error)
+		UpdateDraw(
+			ctx context.Context,
+			gameID int,
+			whiteDrawStatus bool,
+			blackDrawStatus bool,
+		) (changes utils.Changes[GameFieldJsonTag], updated bool, err error)
+		UpdateResult(
+			ctx context.Context,
+			gameID int,
+			method string,
+			result string,
+		) (changes utils.Changes[GameFieldJsonTag], updated bool, err error)
 	}
 )
 

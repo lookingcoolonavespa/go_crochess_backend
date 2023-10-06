@@ -1,3 +1,3 @@
 package utils
 
-type Changes map[string]interface{}
+type Changes[T comparable] map[T]interface{}

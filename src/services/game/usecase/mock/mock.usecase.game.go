@@ -24,10 +24,24 @@ func (c *MockGameUseCase) UpdateOnMove(
 	gameID int,
 	playerID string,
 	move string,
-	_ func(utils.Changes),
-) (utils.Changes, error) {
+	_ func(utils.Changes[domain.GameFieldJsonTag]),
+) (utils.Changes[domain.GameFieldJsonTag], bool, error) {
 	args := c.Called(ctx, gameID, playerID, move)
-	res := args.Get(0)
+	changes := args.Get(0)
+	updated := args.Get(1)
 
-	return res.(utils.Changes), args.Error(1)
+	return changes.(utils.Changes[domain.GameFieldJsonTag]), updated.(bool), args.Error(2)
+}
+
+func (c *MockGameUseCase) UpdateDraw(
+	ctx context.Context,
+	gameID int,
+	whiteDrawStatus bool,
+	blackDrawStatus bool,
+) (utils.Changes[domain.GameFieldJsonTag], bool, error) {
+	args := c.Called(ctx, gameID, whiteDrawStatus, blackDrawStatus)
+	changes := args.Get(0)
+	updated := args.Get(1)
+
+	return changes.(utils.Changes[domain.GameFieldJsonTag]), updated.(bool), args.Error(2)
 }

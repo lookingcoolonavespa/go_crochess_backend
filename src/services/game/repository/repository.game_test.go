@@ -98,8 +98,8 @@ func TestGameRepo_Update(t *testing.T) {
 
 	r := NewGameRepo(db)
 
-	changes := make(utils.Changes)
-	changes["WhiteTime"] = newWhiteTime
+	changes := make(utils.Changes[domain.GameFieldJsonTag])
+	changes[domain.GameWhiteTimeJsonTag] = newWhiteTime
 
 	assert.NoError(t, err)
 

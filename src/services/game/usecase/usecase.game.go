@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -46,17 +47,21 @@ func makeMove(
 	g domain.Game,
 	playerID string,
 	move string,
-) (utils.Changes, chess.Color, error) {
+) (utils.Changes[domain.GameFieldJsonTag], chess.Color, error) {
 	// makeMove returns the changes that need to be made to game structured as key/value pairs,
 	// the active color, and errors
-	changes := make(utils.Changes)
+	changes := make(utils.Changes[domain.GameFieldJsonTag])
 
 	gameState := chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 	moves := strings.Split(g.Moves, " ")
 
-	for _, move := range moves {
-		err := gameState.MoveStr(move)
+	for _, m := range moves {
+		if m == "" {
+			break
+		}
+		err := gameState.MoveStr(m)
 		if err != nil {
+			log.Printf("Usecase/Game/makeMove, error making move to game state\nmove: %s\nerr: %v", m, err)
 			return nil, chess.NoColor, err
 		}
 	}
@@ -69,21 +74,22 @@ func makeMove(
 
 	err := gameState.MoveStr(move)
 	if err != nil {
+		log.Printf("Usecase/Game/makeMove, error making move to game state\nmove: %s\nerr: %v", move, err)
 		return nil, chess.NoColor, err
 	}
 
-	changes["WhiteDrawStatus"] = false
-	changes["BlackDrawStatus"] = false
+	changes[domain.GameWhiteDrawStatusJsonTag] = false
+	changes[domain.GameBlackDrawStatusJsonTag] = false
 
 	outcome := gameState.Outcome()
 	if outcome != chess.NoOutcome {
-		changes["Result"] = outcome.String()
-		changes["Method"] = gameState.Method().String()
+		changes[domain.GameResultJsonTag] = outcome.String()
+		changes[domain.GameMethodJsonTag] = gameState.Method().String()
 
 	} else {
 		if elgibleDraw := len(gameState.EligibleDraws()) > 1; elgibleDraw {
-			changes["WhiteDrawStatus"] = true
-			changes["BlackDrawStatus"] = true
+			changes[domain.GameWhiteDrawStatusJsonTag] = true
+			changes[domain.GameBlackDrawStatusJsonTag] = true
 		}
 
 	}
@@ -91,34 +97,34 @@ func makeMove(
 	timeSpent := timeNow().UnixMilli() - g.TimeStampAtTurnStart
 
 	var activeTime int
-	var fieldOfActiveTime string
+	var fieldOfActiveTime domain.GameFieldJsonTag
 	if activeColor == chess.White {
 		activeTime = g.WhiteTime
-		fieldOfActiveTime = "WhiteTime"
+		fieldOfActiveTime = domain.GameWhiteTimeJsonTag
 	} else {
 		activeTime = g.BlackTime
-		fieldOfActiveTime = "BlackTime"
+		fieldOfActiveTime = domain.GameBlackTimeJsonTag
 	}
 
 	base := activeTime - int(timeSpent)
 	changes[fieldOfActiveTime] = base + (g.Increment * 1000)
-	changes["TimeStampAtTurnStart"] = timeNow().UnixMilli()
+	changes[domain.GameTimeStampJsonTag] = timeNow().UnixMilli()
 
 	if len(g.Moves) > 0 {
-		changes["Moves"] = g.Moves + fmt.Sprintf(" %s", move)
+		changes[domain.GameMovesJsonTag] = g.Moves + fmt.Sprintf(" %s", move)
 	} else {
-		changes["Moves"] = fmt.Sprintf("%s", move)
+		changes[domain.GameMovesJsonTag] = fmt.Sprintf("%s", move)
 	}
 
 	gameState.ChangeNotation(chess.AlgebraicNotation{})
-	changes["History"] = strings.TrimLeft(gameState.String(), "\n")
+	changes[domain.GameHistoryJsonTag] = strings.TrimLeft(gameState.String(), "\n")
 
 	return changes, activeColor.Other(), nil
 }
 
 func (c gameUseCase) handleTimer(
 	ctx context.Context,
-	onTimeOut func(utils.Changes),
+	onTimeOut func(utils.Changes[domain.GameFieldJsonTag]),
 	gameID int, version int,
 	duration time.Duration,
 	activeColor chess.Color,
@@ -128,20 +134,23 @@ func (c gameUseCase) handleTimer(
 		c.timerManager.StopAndDeleteTimer(gameID)
 	} else {
 		c.timerManager.StartTimer(gameID, duration, func() {
-			changes := make(utils.Changes)
-			changes["Method"] = "Time out"
-			changes["WhiteDrawStatus"] = false
-			changes["BlackDrawStatus"] = false
+			changes := make(utils.Changes[domain.GameFieldJsonTag])
+			changes[domain.GameMovesJsonTag] = "Time out"
+			changes[domain.GameWhiteDrawStatusJsonTag] = false
+			changes[domain.GameBlackDrawStatusJsonTag] = false
 
 			if activeColor == chess.White {
-				changes["WhiteTime"] = 0
-				changes["Result"] = chess.BlackWon.String()
+				changes[domain.GameWhiteTimeJsonTag] = 0
+				changes[domain.GameResultJsonTag] = chess.BlackWon.String()
 			} else {
-				changes["BlackTime"] = 0
-				changes["Result"] = chess.WhiteWon.String()
+				changes[domain.GameBlackTimeJsonTag] = 0
+				changes[domain.GameResultJsonTag] = chess.WhiteWon.String()
 			}
 
 			updated, err := c.gameRepo.Update(ctx, gameID, version, changes)
+			if err != nil {
+				log.Printf("Usecase/Game/handleTimer, error updating: %v", err)
+			}
 			if updated && err == nil {
 				c.timerManager.StopAndDeleteTimer(gameID)
 				onTimeOut(changes)
@@ -159,24 +168,24 @@ func (c gameUseCase) UpdateOnMove(
 	gameID int,
 	playerID string,
 	move string,
-	onTimeOut func(utils.Changes),
-) (utils.Changes, error) {
+	onTimeOut func(utils.Changes[domain.GameFieldJsonTag]),
+) (changes utils.Changes[domain.GameFieldJsonTag], updated bool, err error) {
 	g, err := c.gameRepo.Get(ctx, gameID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	changes, activeColor, err := makeMove(g, playerID, move)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	updated, err := c.gameRepo.Update(ctx, gameID, g.Version, changes)
-	if !updated {
-		return nil, errors.New("The move did not reach the server fast enough")
-	}
+	updated, err = c.gameRepo.Update(ctx, gameID, g.Version, changes)
 	if err != nil {
-		return nil, err
+		return nil, false, err
+	}
+	if !updated {
+		return nil, false, nil
 	}
 
 	var timerDuration time.Duration
@@ -198,5 +207,59 @@ func (c gameUseCase) UpdateOnMove(
 		gameOver,
 	)
 
-	return changes, nil
+	return changes, true, nil
+}
+
+func (c gameUseCase) UpdateDraw(
+	ctx context.Context,
+	gameID int,
+	whiteDrawStatus bool,
+	blackDrawStatus bool,
+) (changes utils.Changes[domain.GameFieldJsonTag], updated bool, err error) {
+	game, err := c.gameRepo.Get(ctx, gameID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if game.Result != "" {
+		return nil, false, nil
+	}
+
+	changes = make(utils.Changes[domain.GameFieldJsonTag])
+	changes[domain.GameWhiteDrawStatusJsonTag] = whiteDrawStatus
+	changes[domain.GameBlackDrawStatusJsonTag] = blackDrawStatus
+
+	updated, err = c.gameRepo.Update(ctx, gameID, game.Version, changes)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return changes, updated, nil
+}
+
+func (c gameUseCase) UpdateResult(
+	ctx context.Context,
+	gameID int,
+	method string,
+	result string,
+) (changes utils.Changes[domain.GameFieldJsonTag], updated bool, err error) {
+	game, err := c.gameRepo.Get(ctx, gameID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if game.Result != "" {
+		return nil, false, nil
+	}
+
+	changes = make(utils.Changes[domain.GameFieldJsonTag])
+	changes[domain.GameMethodJsonTag] = method
+	changes[domain.GameResultJsonTag] = result
+
+	updated, err = c.gameRepo.Update(ctx, gameID, game.Version, changes)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return changes, updated, nil
 }

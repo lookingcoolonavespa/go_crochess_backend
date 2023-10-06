@@ -33,7 +33,7 @@ func (twp TopicWithoutParm) HandleWSMessage(
 		return err
 	}
 
-	_, subscribed := twp.GetClient(client.GetID())
+	_, subscribed := twp.room.GetClient(client.GetID())
 	if event != SubscribeEvent && !subscribed {
 		err := client.SendError(
 			fmt.Sprintf(`you are not subscribed to "%s"`, twp.name),
@@ -48,9 +48,4 @@ func (twp TopicWithoutParm) HandleWSMessage(
 
 func (twp TopicWithoutParm) RegisterEvent(event string, handleFunc TopicEventHandler) {
 	twp.events[event] = handleFunc
-}
-
-func (twp TopicWithoutParm) GetClient(id string) (*Client, bool) {
-	client, ok := twp.room.clients[id]
-	return client, ok
 }

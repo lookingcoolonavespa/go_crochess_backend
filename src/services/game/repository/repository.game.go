@@ -3,10 +3,8 @@ package repository_game
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"reflect"
-	"regexp"
+	"log"
 	"time"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
@@ -50,6 +48,7 @@ func (c gameRepo) Get(ctx context.Context, id int) (domain.Game, error) {
 		&game.BlackDrawStatus,
 	)
 	if err != nil {
+		log.Printf("Repo/Game/Get, error getting game: %v\n", err)
 		return domain.Game{}, err
 	}
 
@@ -88,6 +87,7 @@ func (c gameRepo) Insert(
 		&g.Time,
 	)
 	if err != nil {
+		log.Printf("Repo/Game/Insert, error inserting game: %v\n", err)
 		return 0, err
 	}
 	defer rows.Close()
@@ -102,39 +102,35 @@ func (c gameRepo) Update(
 	ctx context.Context,
 	id int,
 	version int,
-	changes utils.Changes,
+	changes utils.Changes[domain.GameFieldJsonTag],
 ) (updated bool, err error) {
-	var game domain.Game
+	variableCount := 1
+	updatedValues := []interface{}{version + 1}
 	var updateStr string
-	gType := reflect.TypeOf(game)
-	for i := 0; i < gType.NumField(); i++ {
-		field := gType.Field(i)
-		fieldName := field.Name
-
-		if _, exists := changes[fieldName]; exists {
-			columnName := field.Tag.Get("json")
-			if columnName == "" {
-				return false, errors.New(fmt.Sprintf("Encountered an error: %s is not a valid field in Game", fieldName))
-			}
-			updateStr += fmt.Sprintf("%s = %v, ", columnName, changes[fieldName])
-		}
+	for field, value := range changes {
+		variableCount += 1
+		updateStr += fmt.Sprintf("%s = $%d, ", field, variableCount)
+		updatedValues = append(updatedValues, value)
 	}
-	regex := regexp.MustCompile(`\s*,\s*$`)
-	updateStr = regex.ReplaceAllString(updateStr, "")
+	// delete trailing comma and space
+	updateStr = updateStr[0 : len(updateStr)-2]
 
 	stmt := fmt.Sprintf(`
     UPDATE game 
     SET 
         version = $1,
         %s
-    WHERE id = $2
-    AND version = $3
+    WHERE id = %d
+    AND version = %d
     `,
 		updateStr,
+		id,
+		version,
 	)
 
-	result, err := c.db.ExecContext(ctx, stmt, version+1, id, version)
+	result, err := c.db.ExecContext(ctx, stmt, updatedValues...)
 	if err != nil {
+		log.Printf("Repo/Game/Updating, error updating game: sql: %s\nerr: %v\n", stmt, err)
 		return false, err
 	}
 
@@ -143,7 +139,7 @@ func (c gameRepo) Update(
 		return false, err
 	}
 	if rowsAffected != 1 {
-		return false, errors.New("Could not update game, version is invalid")
+		return false, nil
 	}
 
 	return true, nil

@@ -60,3 +60,8 @@ func (r *Room) GetParam() (string, error) {
 
 	return r.param, nil
 }
+
+func (r *Room) GetClient(id string) (*Client, bool) {
+	client, ok := r.clients[id]
+	return client, ok
+}

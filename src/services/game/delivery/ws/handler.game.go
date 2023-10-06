@@ -2,27 +2,29 @@ package delivery_ws_game
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 )
 
 const baseTopicName = "game"
+const jsonErrorMessage = "Handler/Game/HandlerUpdateDraw, Failed to convert message to json: %v\n"
 
 type GameHandler struct {
-	topic   domain_websocket.TopicWithParam
 	usecase domain.GameUseCase
 }
 
 func NewGameHandler(
-	topic domain_websocket.TopicWithParam,
 	usecase domain.GameUseCase,
 ) GameHandler {
 	return GameHandler{
-		topic,
 		usecase,
 	}
 
@@ -34,7 +36,7 @@ func (g GameHandler) HandlerOnSubscribe(
 	client *domain_websocket.Client,
 	_ []byte,
 ) error {
-	client.Subscribe(room)
+	err := client.Subscribe(room)
 
 	param, err := room.GetParam()
 	if err != nil {
@@ -71,5 +73,212 @@ func (g GameHandler) HandlerOnUnsubscribe(
 	_ []byte,
 ) error {
 	client.Unsubscribe(room)
+	return nil
+}
+
+func (g GameHandler) HandlerMakeMove(
+	ctx context.Context,
+	room *domain_websocket.Room,
+	client *domain_websocket.Client,
+	payload []byte,
+) error {
+	gID, err := room.GetParam()
+	if err != nil {
+		log.Printf("Handler/Game/HandlerMakeMove: room is missing param")
+		return err
+	}
+
+	gameID, err := strconv.Atoi(gID)
+	if err != nil {
+		log.Printf("Handler/Game/HandlerMakeMove: param is not a valid int")
+		return err
+	}
+
+	type MovePayload struct {
+		PlayerID string `json:"player_id"`
+		Move     string `json:"move"`
+	}
+	var movePayload MovePayload
+	err = json.Unmarshal(payload, &movePayload)
+	if err != nil {
+		log.Printf("Handler/Game/HandlerMakeMove: failed to unmarshal payload, err: %v\n", err)
+		return err
+	}
+
+	missingFields := make([]string, 0)
+	if movePayload.PlayerID == "" {
+		missingFields = append(missingFields, "player_id")
+	}
+	if movePayload.Move == "" {
+		missingFields = append(missingFields, "move")
+	}
+	if len(missingFields) != 0 {
+		errorMessage := fmt.Sprintf("move is missing the following fields: %v", strings.Join(missingFields, ", "))
+		err = client.SendError(
+			errorMessage,
+			"Handler/Game/HandlerMakeMove, Failed to convert message to json: %v\n",
+		)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(errorMessage)
+	}
+
+	changes, updated, err := g.usecase.UpdateOnMove(
+		ctx,
+		gameID,
+		movePayload.PlayerID,
+		movePayload.Move,
+		func(changes utils.Changes[domain.GameFieldJsonTag]) {
+			jsonData, err := domain_websocket.NewOutboundMessage(
+				fmt.Sprint(baseTopicName, "/", gameID),
+				domain_websocket.GameOverEvent,
+				changes,
+			).
+				ToJSON(jsonErrorMessage)
+			if err != nil {
+				client.SendError(
+					"game timer ran out, but there was an error converting the update to json",
+					jsonErrorMessage,
+				)
+				return
+			}
+
+			room.BroadcastMessage(jsonData)
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if !updated {
+		client.SendError(
+			`Unable to update draw status because either the game is over or
+            because the game was updated before your request could be completed`,
+			jsonErrorMessage,
+		)
+	}
+
+	jsonData, err := domain_websocket.NewOutboundMessage(
+		fmt.Sprint(baseTopicName, "/", gameID),
+		domain_websocket.GameOverEvent,
+		changes,
+	).
+		ToJSON(jsonErrorMessage)
+	if err != nil {
+		return err
+	}
+
+	room.BroadcastMessage(jsonData)
+
+	return nil
+}
+
+func (g GameHandler) HandlerUpdateDraw(
+	ctx context.Context,
+	room *domain_websocket.Room,
+	client *domain_websocket.Client,
+	payload []byte,
+) error {
+	gID, err := room.GetParam()
+	if err != nil {
+		log.Printf("Handler/Game/HandlerUpdateDraw: room is missing param")
+		return err
+	}
+
+	gameID, err := strconv.Atoi(gID)
+	if err != nil {
+		log.Printf("Handler/Game/HandlerUpdateDraw: param is not a valid int")
+		return err
+	}
+
+	type UpdateDrawPayload struct {
+		White bool `json:"white"`
+		Black bool `json:"black"`
+	}
+	var updateDrawPayload UpdateDrawPayload
+	err = json.Unmarshal(payload, &updateDrawPayload)
+	if err != nil {
+		log.Printf("Handler/Game/HandlerUpdateDraw: failed to unmarshal payload, err: %v\n", err)
+		return err
+	}
+
+	changes, updated, err := g.usecase.UpdateDraw(ctx, gameID, updateDrawPayload.White, updateDrawPayload.Black)
+	if err != nil {
+		return err
+	}
+	if !updated {
+		client.SendError(
+			`Unable to update draw status because either the game is over or
+            because the game was updated before your request could be completed`,
+			jsonErrorMessage,
+		)
+		return nil
+	}
+
+	jsonData, err := json.Marshal(changes)
+	if err != nil {
+		log.Printf(jsonErrorMessage, err)
+	}
+
+	room.BroadcastMessage(jsonData)
+
+	return nil
+}
+
+func (g GameHandler) HandlerUpdateResult(
+	ctx context.Context,
+	room *domain_websocket.Room,
+	client *domain_websocket.Client,
+	payload []byte,
+) error {
+	gID, err := room.GetParam()
+	if err != nil {
+		log.Printf("Handler/Game/HandlerUpdateResult: room is missing param")
+		return err
+	}
+
+	gameID, err := strconv.Atoi(gID)
+	if err != nil {
+		log.Printf("Handler/Game/HandlerUpdateResult: param is not a valid int")
+		return err
+	}
+
+	type UpdateResultPayload struct {
+		Method string `json:"method"`
+		Result string `json:"result"`
+	}
+	var updateResultPayload UpdateResultPayload
+	err = json.Unmarshal(payload, &updateResultPayload)
+	if err != nil {
+		log.Printf("Handler/Game/HandlerUpdateResult: failed to unmarshal payload, err: %v\n", err)
+		return err
+	}
+
+	changes, updated, err := g.usecase.UpdateResult(
+		ctx,
+		gameID,
+		updateResultPayload.Method,
+		updateResultPayload.Result,
+	)
+	if err != nil {
+		return err
+	}
+	if !updated {
+		client.SendError(
+			`Unable to update result because either the game is over or
+            because the game was updated before your request could be completed`,
+			jsonErrorMessage,
+		)
+		return nil
+	}
+
+	jsonData, err := json.Marshal(changes)
+	if err != nil {
+		log.Printf(jsonErrorMessage, err)
+	}
+
+	room.BroadcastMessage(jsonData)
+
 	return nil
 }

@@ -45,6 +45,11 @@ func (c *Client) Subscribe(room *Room) error {
 	if err != nil {
 		return err
 	}
+	_, subscribed := c.rooms[room]
+	if subscribed {
+		return errors.New("client already has this subscription")
+	}
+
 	c.rooms[room] = true
 
 	return nil

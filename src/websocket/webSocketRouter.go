@@ -25,6 +25,7 @@ func (r *WebSocketRouter) PushNewRoute(topic Topic) {
 }
 
 func (r WebSocketRouter) HandleWSMessage(ctx context.Context, client *Client, jsonMessage []byte) error {
+	fmt.Println(string(jsonMessage))
 	var message InboundMessage
 	err := json.Unmarshal(jsonMessage, &message)
 	if err != nil {

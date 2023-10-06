@@ -54,13 +54,13 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 	t.Run("Success on regular move", func(t *testing.T) {
 		move := "d2d4"
 
-		changes := utils.Changes{
-			"History":              "1. e4 e5 2. Nf3 Nf6 3. d4 *",
-			"TimeStampAtTurnStart": timeNow().UnixMilli(),
-			"WhiteTime":            mockGame.WhiteTime + (mockGame.Increment * 1000),
-			"Moves":                fmt.Sprintf("%s %s", mockGame.Moves, move),
-			"WhiteDrawStatus":      false,
-			"BlackDrawStatus":      false,
+		changes := utils.Changes[domain.GameFieldJsonTag]{
+			domain.GameHistoryJsonTag:         "1. e4 e5 2. Nf3 Nf6 3. d4 *",
+			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
+			domain.GameWhiteTimeJsonTag:       mockGame.WhiteTime + (mockGame.Increment * 1000),
+			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame.Moves, move),
+			domain.GameWhiteDrawStatusJsonTag: false,
+			domain.GameBlackDrawStatusJsonTag: false,
 		}
 
 		mockGameRepo.On("Get", context.Background(), mockGame.ID).Return(mockGame, nil).Once()
@@ -73,12 +73,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			Return(true, nil).Once()
 
 		mock.ExpectBegin()
-		_, err := gameUseCase.UpdateOnMove(
+		_, _, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame.ID,
 			mockGame.WhiteID,
 			move,
-			func(c utils.Changes) {},
+			func(c utils.Changes[domain.GameFieldJsonTag]) {},
 		)
 		assert.NoError(t, err)
 
@@ -92,15 +92,15 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		mockGame2.History = "1. f4 e5 2. g4 *"
 
 		move := "d8h4"
-		changes := utils.Changes{
-			"History":              "1. f4 e5 2. g4 Qh4#  0-1",
-			"Moves":                fmt.Sprintf("%s %s", mockGame2.Moves, move),
-			"TimeStampAtTurnStart": timeNow().UnixMilli(),
-			"BlackTime":            mockGame.BlackTime + (mockGame.Increment * 1000),
-			"Result":               chess.BlackWon.String(),
-			"Method":               chess.Checkmate.String(),
-			"WhiteDrawStatus":      false,
-			"BlackDrawStatus":      false,
+		changes := utils.Changes[domain.GameFieldJsonTag]{
+			domain.GameHistoryJsonTag:         "1. f4 e5 2. g4 Qh4#  0-1",
+			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
+			domain.GameBlackTimeJsonTag:       mockGame.BlackTime + (mockGame.Increment * 1000),
+			domain.GameResultJsonTag:          chess.BlackWon.String(),
+			domain.GameMethodJsonTag:          chess.Checkmate.String(),
+			domain.GameWhiteDrawStatusJsonTag: false,
+			domain.GameBlackDrawStatusJsonTag: false,
 		}
 
 		mockGameRepo.On("Get", context.Background(), mockGame2.ID).Return(mockGame2, nil).Once()
@@ -113,12 +113,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 
 		gameUseCase := NewGameUseCase(db, mockGameRepo)
 
-		_, err := gameUseCase.UpdateOnMove(
+		_, _, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame2.ID,
 			mockGame2.BlackID,
 			move,
-			func(utils.Changes) {},
+			func(utils.Changes[domain.GameFieldJsonTag]) {},
 		)
 		assert.NoError(t, err)
 
@@ -132,15 +132,15 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		mockGame2.History = "1. e2e4 e7e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 *"
 
 		move := "e7f8"
-		changes := utils.Changes{
-			"History":              "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8 10. Be2 Be7 11. Bf1 Bf8  1/2-1/2",
-			"Moves":                fmt.Sprintf("%s %s", mockGame2.Moves, move),
-			"TimeStampAtTurnStart": timeNow().UnixMilli(),
-			"BlackTime":            mockGame.BlackTime + (mockGame.Increment * 1000),
-			"Result":               chess.Draw.String(),
-			"Method":               chess.FivefoldRepetition.String(),
-			"WhiteDrawStatus":      false,
-			"BlackDrawStatus":      false,
+		changes := utils.Changes[domain.GameFieldJsonTag]{
+			domain.GameHistoryJsonTag:         "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8 10. Be2 Be7 11. Bf1 Bf8  1/2-1/2",
+			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
+			domain.GameBlackTimeJsonTag:       mockGame.BlackTime + (mockGame.Increment * 1000),
+			domain.GameResultJsonTag:          chess.Draw.String(),
+			domain.GameMethodJsonTag:          chess.FivefoldRepetition.String(),
+			domain.GameWhiteDrawStatusJsonTag: false,
+			domain.GameBlackDrawStatusJsonTag: false,
 		}
 
 		mockGameRepo.On("Get", context.Background(), mockGame2.ID).
@@ -150,12 +150,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			Return(true, nil).
 			Once()
 
-		_, err := gameUseCase.UpdateOnMove(
+		_, _, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame2.ID,
 			mockGame2.BlackID,
 			move,
-			func(utils.Changes) {},
+			func(utils.Changes[domain.GameFieldJsonTag]) {},
 		)
 		assert.NoError(t, err)
 
@@ -169,13 +169,13 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		mockGame2.History = "1. e2e4 e7e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 *"
 
 		move := "e7f8"
-		changes := utils.Changes{
-			"History":              "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8  *",
-			"Moves":                fmt.Sprintf("%s %s", mockGame2.Moves, move),
-			"TimeStampAtTurnStart": timeNow().UnixMilli(),
-			"BlackTime":            mockGame.BlackTime + (mockGame.Increment * 1000),
-			"WhiteDrawStatus":      true,
-			"BlackDrawStatus":      true,
+		changes := utils.Changes[domain.GameFieldJsonTag]{
+			domain.GameHistoryJsonTag:         "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8  *",
+			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
+			domain.GameBlackTimeJsonTag:       mockGame.BlackTime + (mockGame.Increment * 1000),
+			domain.GameWhiteDrawStatusJsonTag: true,
+			domain.GameBlackDrawStatusJsonTag: true,
 		}
 
 		mockGameRepo.On("Get", context.Background(), mockGame2.ID).
@@ -185,12 +185,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			Return(true, nil).
 			Once()
 
-		_, err := gameUseCase.UpdateOnMove(
+		_, _, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame2.ID,
 			mockGame2.BlackID,
 			move,
-			func(utils.Changes) {},
+			func(utils.Changes[domain.GameFieldJsonTag]) {},
 		)
 		assert.NoError(t, err)
 
@@ -201,12 +201,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 	t.Run("Failed on invalid move", func(t *testing.T) {
 		mockGameRepo.On("Get", context.Background(), mockGame.ID).Return(mockGame, nil).Once()
 
-		_, err := gameUseCase.UpdateOnMove(
+		_, _, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame.ID,
 			mockGame.WhiteID,
 			"d4d5",
-			func(utils.Changes) {},
+			func(utils.Changes[domain.GameFieldJsonTag]) {},
 		)
 		assert.Error(t, err)
 
@@ -218,12 +218,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		mockGameRepo.On("Get", context.Background(), mockGame.ID).
 			Return(domain.Game{}, errors.New("Unexpected")).Once()
 
-		_, err := gameUseCase.UpdateOnMove(
+		_, _, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame.ID,
 			mockGame.WhiteID,
 			"d2d4",
-			func(utils.Changes) {},
+			func(utils.Changes[domain.GameFieldJsonTag]) {},
 		)
 		assert.Error(t, err)
 
@@ -232,24 +232,24 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 	})
 
 	t.Run("Failed on Update", func(t *testing.T) {
-		changes := utils.Changes{
-			"History":              "1. e4 e5 2. Nf3 Nf6 3. d4 *",
-			"TimeStampAtTurnStart": timeNow().UnixMilli(),
-			"WhiteTime":            mockGame.WhiteTime + (mockGame.Increment * 1000),
-			"Moves":                "e2e4 e7e5 g1f3 g8f6 d2d4",
-			"WhiteDrawStatus":      false,
-			"BlackDrawStatus":      false,
+		changes := utils.Changes[domain.GameFieldJsonTag]{
+			domain.GameHistoryJsonTag:         "1. e4 e5 2. Nf3 Nf6 3. d4 *",
+			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
+			domain.GameWhiteTimeJsonTag:       mockGame.WhiteTime + (mockGame.Increment * 1000),
+			domain.GameMovesJsonTag:           "e2e4 e7e5 g1f3 g8f6 d2d4",
+			domain.GameWhiteDrawStatusJsonTag: false,
+			domain.GameBlackDrawStatusJsonTag: false,
 		}
 		mockGameRepo.On("Get", context.Background(), mockGame.ID).Return(mockGame, nil).Once()
 		mockGameRepo.On("Update", context.Background(), mockGame.ID, mockGame.Version, changes).
 			Return(false, errors.New("Unexpected")).Once()
 
-		changes, err := gameUseCase.UpdateOnMove(
+		changes, _, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame.ID,
 			mockGame.WhiteID,
 			"d2d4",
-			func(utils.Changes) {},
+			func(utils.Changes[domain.GameFieldJsonTag]) {},
 		)
 		assert.Error(t, err)
 
@@ -261,25 +261,25 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		move := "d2d4"
 		mockGame.ID = 99
 
-		changes := utils.Changes{
-			"History":              "1. e4 e5 2. Nf3 Nf6 3. d4 *",
-			"TimeStampAtTurnStart": timeNow().UnixMilli(),
-			"WhiteTime":            mockGame.WhiteTime + (mockGame.Increment * 1000),
-			"Moves":                fmt.Sprintf("%s %s", mockGame.Moves, move),
-			"WhiteDrawStatus":      false,
-			"BlackDrawStatus":      false,
+		changes := utils.Changes[domain.GameFieldJsonTag]{
+			domain.GameHistoryJsonTag:         "1. e4 e5 2. Nf3 Nf6 3. d4 *",
+			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
+			domain.GameWhiteTimeJsonTag:       mockGame.WhiteTime + (mockGame.Increment * 1000),
+			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame.Moves, move),
+			domain.GameWhiteDrawStatusJsonTag: false,
+			domain.GameBlackDrawStatusJsonTag: false,
 		}
 
 		mockGameRepo.On("Get", context.Background(), mockGame.ID).Return(mockGame, nil).Once()
 		mockGameRepo.On("Update", context.Background(), mockGame.ID, mockGame.Version, changes).
 			Return(true, nil).Once()
 		mockGameRepo.On("Update", context.Background(), mockGame.ID, mockGame.Version+1,
-			utils.Changes{
-				"Result":          "1-0",
-				"Method":          "Time out",
-				"BlackTime":       0,
-				"WhiteDrawStatus": false,
-				"BlackDrawStatus": false,
+			utils.Changes[domain.GameFieldJsonTag]{
+				domain.GameResultJsonTag:          "1-0",
+				domain.GameMethodJsonTag:          "Time out",
+				domain.GameBlackTimeJsonTag:       0,
+				domain.GameWhiteDrawStatusJsonTag: false,
+				domain.GameBlackDrawStatusJsonTag: false,
 			},
 		).Return(true, nil).Once()
 
@@ -290,12 +290,12 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			mockGameRepo,
 		)
 
-		_, err := gameUseCase.UpdateOnMove(
+		_, _, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame.ID,
 			mockGame.WhiteID,
 			move,
-			func(utils.Changes) { go func() { channel <- gameOverMsg }() },
+			func(utils.Changes[domain.GameFieldJsonTag]) { go func() { channel <- gameOverMsg }() },
 		)
 		assert.NoError(t, err)
 

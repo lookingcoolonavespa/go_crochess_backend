@@ -15,7 +15,6 @@ import (
 const topicName = "gameseeks"
 
 type GameseeksHandler struct {
-	topic   domain_websocket.TopicWithoutParm
 	usecase domain.GameseeksUseCase
 	repo    domain.GameseeksRepo
 }
@@ -28,10 +27,8 @@ type AcceptedGameseek struct {
 func NewGameseeksHandler(
 	repo domain.GameseeksRepo,
 	usecase domain.GameseeksUseCase,
-	topic domain_websocket.Topic,
 ) GameseeksHandler {
 	handler := GameseeksHandler{
-		topic.(domain_websocket.TopicWithoutParm),
 		usecase,
 		repo,
 	}
@@ -39,13 +36,16 @@ func NewGameseeksHandler(
 	return handler
 }
 
-func (g GameseeksHandler) HandlerGetGameseeksList(
+func (g GameseeksHandler) HandlerOnSubscribe(
 	ctx context.Context,
 	room *domain_websocket.Room,
 	client *domain_websocket.Client,
 	_ []byte,
 ) error {
 	err := client.Subscribe(room)
+	if err != nil {
+		return err
+	}
 
 	list, err := g.repo.List(ctx)
 	if err != nil {
@@ -79,7 +79,7 @@ func (g GameseeksHandler) HandleGameseekInsert(
 		errorMessage := fmt.Sprintf("gameseek is missing the following fields: %v", strings.Join(missingFields, ", "))
 		err := client.SendError(
 			errorMessage,
-			"GameseeksHandler/HandleGameseekInsert, Failed to unmarshal message: %v\n",
+			"GameseeksHandler/HandleGameseekInsert, Failed to convert message to json: %v\n",
 		)
 		if err != nil {
 			return err
@@ -133,12 +133,12 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 		return errors.New(errorMessage)
 	}
 
-	whiteClient, ok := g.topic.GetClient(game.WhiteID)
+	whiteClient, ok := room.GetClient(game.WhiteID)
 	if !ok {
 		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, game.WhiteID, topicName))
 	}
 
-	blackClient, ok := g.topic.GetClient(game.BlackID)
+	blackClient, ok := room.GetClient(game.BlackID)
 	if !ok {
 		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, game.BlackID, topicName))
 	}
@@ -195,7 +195,7 @@ func (g GameseeksHandler) HandlerOnUnsubscribe(
 
 	jsonDeletedGameseeks, err := domain_websocket.NewOutboundMessage(
 		topicName,
-		"deletion",
+		domain_websocket.DeletionEvent,
 		deletedGameseeks).
 		ToJSON("HandlerGameseeks/HandlerOnUnsubscribe: error transforming message to json\nerr: %v")
 	if err != nil {

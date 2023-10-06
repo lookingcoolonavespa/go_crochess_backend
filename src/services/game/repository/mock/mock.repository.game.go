@@ -23,7 +23,7 @@ func (c *GameMockRepo) Update(
 	ctx context.Context,
 	id int,
 	version int,
-	changes utils.Changes,
+	changes utils.Changes[domain.GameFieldJsonTag],
 ) (bool, error) {
 	args := c.Called(ctx, id, version, changes)
 	result := args.Get(0)

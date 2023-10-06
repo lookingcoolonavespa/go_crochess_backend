@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/database"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/database/migrations"
 	delivery_ws_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/delivery/ws"
 	repository_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/repository"
 	usecase_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/usecase"
@@ -64,10 +63,10 @@ func initDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	err = migrations.Up(db)
-	if err != nil {
-		log.Fatalf("error on migratre schema: %v", err)
-	}
+	// err = migrations.Up(db)
+	// if err != nil {
+	// 	log.Fatalf("error on migratre schema: %v", err)
+	// }
 
 	return db, nil
 }
@@ -81,8 +80,8 @@ func initHandlers(db *sql.DB) {
 	gameseeksRepo := repository_gameseeks.NewGameseeksRepo(db)
 	gameRepo := repository_game.NewGameRepo(db)
 	gameseeksUseCase := usecase_gameseeks.NewGameseeksUseCase(db, gameRepo)
-	gameseeksHandler := delivery_ws_gameseeks.NewGameseeksHandler(gameseeksRepo, gameseeksUseCase, gameseeksTopic)
-	gameseeksTopic.RegisterEvent(domain_websocket.SubscribeEvent, gameseeksHandler.HandlerGetGameseeksList)
+	gameseeksHandler := delivery_ws_gameseeks.NewGameseeksHandler(gameseeksRepo, gameseeksUseCase)
+	gameseeksTopic.RegisterEvent(domain_websocket.SubscribeEvent, gameseeksHandler.HandlerOnSubscribe)
 	gameseeksTopic.RegisterEvent(domain_websocket.InsertEvent, gameseeksHandler.HandleGameseekInsert)
 	gameseeksTopic.RegisterEvent(domain_websocket.UnsubscribeEvent, gameseeksHandler.HandlerOnUnsubscribe)
 	gameseeksTopic.RegisterEvent(domain_websocket.AcceptEvent, gameseeksHandler.HandlerAcceptGameseek)
@@ -94,11 +93,13 @@ func initHandlers(db *sql.DB) {
 	}
 	gameUseCase := usecase_game.NewGameUseCase(db, gameRepo)
 	gameHandler := delivery_ws_game.NewGameHandler(
-		gameTopic.(domain_websocket.TopicWithParam),
 		gameUseCase,
 	)
 	gameTopic.RegisterEvent(domain_websocket.SubscribeEvent, gameHandler.HandlerOnSubscribe)
 	gameTopic.RegisterEvent(domain_websocket.UnsubscribeEvent, gameHandler.HandlerOnUnsubscribe)
+	gameTopic.RegisterEvent(domain_websocket.MakeMoveEvent, gameHandler.HandlerMakeMove)
+	gameTopic.RegisterEvent(domain_websocket.UpdateDrawEvent, gameHandler.HandlerUpdateDraw)
+	gameTopic.RegisterEvent(domain_websocket.UpdateResultEvent, gameHandler.HandlerUpdateResult)
 
 	webSocketRouter, err := domain_websocket.NewWebSocketRouter()
 	if err != nil {
