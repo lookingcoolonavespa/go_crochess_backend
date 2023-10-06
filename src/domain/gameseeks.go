@@ -19,7 +19,11 @@ type (
 	}
 
 	GameseeksUseCase interface {
-		OnAccept(ctx context.Context, g Game) (gameID int, err error)
+		OnAccept(
+			ctx context.Context,
+			g Game,
+			onTimeOut func(GameChanges),
+		) (gameID int, err error)
 	}
 )
 

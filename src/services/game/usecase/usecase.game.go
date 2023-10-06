@@ -11,7 +11,6 @@ import (
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	domain_timerManager "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/timerManager"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 	"github.com/notnil/chess"
 )
 
@@ -34,6 +33,33 @@ func NewGameUseCase(
 	}
 }
 
+func (c gameUseCase) OnAccept(
+	ctx context.Context,
+	g domain.Game,
+	onTimeOut func(domain.GameChanges),
+) (gameID int, err error) {
+	g.TimeStampAtTurnStart = timeNow().UnixMilli()
+	g.WhiteTime = g.Time
+	g.BlackTime = g.Time
+
+	gameID, err = c.gameRepo.Insert(ctx, g)
+	if err != nil {
+		return -1, err
+	}
+
+	c.handleTimer(
+		ctx,
+		onTimeOut,
+		gameID,
+		1,
+		intToMillisecondsDuration(g.Time),
+		chess.White,
+		false,
+	)
+
+	return gameID, nil
+}
+
 func (c gameUseCase) Get(ctx context.Context, gameID int) (domain.Game, error) {
 	game, err := c.gameRepo.Get(ctx, gameID)
 	if err != nil {
@@ -47,10 +73,10 @@ func makeMove(
 	g domain.Game,
 	playerID string,
 	move string,
-) (utils.Changes[domain.GameFieldJsonTag], chess.Color, error) {
+) (domain.GameChanges, chess.Color, error) {
 	// makeMove returns the changes that need to be made to game structured as key/value pairs,
 	// the active color, and errors
-	changes := make(utils.Changes[domain.GameFieldJsonTag])
+	changes := make(domain.GameChanges)
 
 	gameState := chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 	moves := strings.Split(g.Moves, " ")
@@ -124,7 +150,7 @@ func makeMove(
 
 func (c gameUseCase) handleTimer(
 	ctx context.Context,
-	onTimeOut func(utils.Changes[domain.GameFieldJsonTag]),
+	onTimeOut func(domain.GameChanges),
 	gameID int, version int,
 	duration time.Duration,
 	activeColor chess.Color,
@@ -134,8 +160,8 @@ func (c gameUseCase) handleTimer(
 		c.timerManager.StopAndDeleteTimer(gameID)
 	} else {
 		c.timerManager.StartTimer(gameID, duration, func() {
-			changes := make(utils.Changes[domain.GameFieldJsonTag])
-			changes[domain.GameMovesJsonTag] = "Time out"
+			changes := make(domain.GameChanges)
+			changes[domain.GameMethodJsonTag] = "TimeOut"
 			changes[domain.GameWhiteDrawStatusJsonTag] = false
 			changes[domain.GameBlackDrawStatusJsonTag] = false
 
@@ -168,11 +194,15 @@ func (c gameUseCase) UpdateOnMove(
 	gameID int,
 	playerID string,
 	move string,
-	onTimeOut func(utils.Changes[domain.GameFieldJsonTag]),
-) (changes utils.Changes[domain.GameFieldJsonTag], updated bool, err error) {
+	onTimeOut func(domain.GameChanges),
+) (changes domain.GameChanges, updated bool, err error) {
 	g, err := c.gameRepo.Get(ctx, gameID)
 	if err != nil {
 		return nil, false, err
+	}
+
+	if g.Result != "" {
+		return nil, false, nil
 	}
 
 	changes, activeColor, err := makeMove(g, playerID, move)
@@ -215,7 +245,7 @@ func (c gameUseCase) UpdateDraw(
 	gameID int,
 	whiteDrawStatus bool,
 	blackDrawStatus bool,
-) (changes utils.Changes[domain.GameFieldJsonTag], updated bool, err error) {
+) (changes domain.GameChanges, updated bool, err error) {
 	game, err := c.gameRepo.Get(ctx, gameID)
 	if err != nil {
 		return nil, false, err
@@ -225,7 +255,7 @@ func (c gameUseCase) UpdateDraw(
 		return nil, false, nil
 	}
 
-	changes = make(utils.Changes[domain.GameFieldJsonTag])
+	changes = make(domain.GameChanges)
 	changes[domain.GameWhiteDrawStatusJsonTag] = whiteDrawStatus
 	changes[domain.GameBlackDrawStatusJsonTag] = blackDrawStatus
 
@@ -242,7 +272,7 @@ func (c gameUseCase) UpdateResult(
 	gameID int,
 	method string,
 	result string,
-) (changes utils.Changes[domain.GameFieldJsonTag], updated bool, err error) {
+) (changes domain.GameChanges, updated bool, err error) {
 	game, err := c.gameRepo.Get(ctx, gameID)
 	if err != nil {
 		return nil, false, err
@@ -252,7 +282,7 @@ func (c gameUseCase) UpdateResult(
 		return nil, false, nil
 	}
 
-	changes = make(utils.Changes[domain.GameFieldJsonTag])
+	changes = make(domain.GameChanges)
 	changes[domain.GameMethodJsonTag] = method
 	changes[domain.GameResultJsonTag] = result
 

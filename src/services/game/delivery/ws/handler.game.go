@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/delivery_utils"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 )
 
@@ -130,38 +130,30 @@ func (g GameHandler) HandlerMakeMove(
 		gameID,
 		movePayload.PlayerID,
 		movePayload.Move,
-		func(changes utils.Changes[domain.GameFieldJsonTag]) {
-			jsonData, err := domain_websocket.NewOutboundMessage(
-				fmt.Sprint(baseTopicName, "/", gameID),
-				domain_websocket.GameOverEvent,
-				changes,
-			).
-				ToJSON(jsonErrorMessage)
-			if err != nil {
-				client.SendError(
-					"game timer ran out, but there was an error converting the update to json",
-					jsonErrorMessage,
-				)
-				return
-			}
-
-			room.BroadcastMessage(jsonData)
-		},
+		delivery_utils.GetOnTimeOut(room, client, &gameID, jsonErrorMessage),
 	)
 	if err != nil {
 		return err
 	}
 	if !updated {
 		client.SendError(
-			`Unable to update draw status because either the game is over or
+			`Unable to make move because either the game is over or
             because the game was updated before your request could be completed`,
 			jsonErrorMessage,
 		)
+		return nil
+	}
+
+	var event string
+	if changes[domain.GameResultJsonTag] == nil {
+		event = domain_websocket.MakeMoveEvent
+	} else {
+		event = domain_websocket.GameOverEvent
 	}
 
 	jsonData, err := domain_websocket.NewOutboundMessage(
 		fmt.Sprint(baseTopicName, "/", gameID),
-		domain_websocket.GameOverEvent,
+		event,
 		changes,
 	).
 		ToJSON(jsonErrorMessage)
@@ -216,9 +208,14 @@ func (g GameHandler) HandlerUpdateDraw(
 		return nil
 	}
 
-	jsonData, err := json.Marshal(changes)
+	jsonData, err := domain_websocket.NewOutboundMessage(
+		fmt.Sprint(baseTopicName, "/", gameID),
+		domain_websocket.UpdateDrawEvent,
+		changes,
+	).
+		ToJSON(jsonErrorMessage)
 	if err != nil {
-		log.Printf(jsonErrorMessage, err)
+		return err
 	}
 
 	room.BroadcastMessage(jsonData)
@@ -273,9 +270,14 @@ func (g GameHandler) HandlerUpdateResult(
 		return nil
 	}
 
-	jsonData, err := json.Marshal(changes)
+	jsonData, err := domain_websocket.NewOutboundMessage(
+		fmt.Sprint(baseTopicName, "/", gameID),
+		domain_websocket.UpdateResultEvent,
+		changes,
+	).
+		ToJSON(jsonErrorMessage)
 	if err != nil {
-		log.Printf(jsonErrorMessage, err)
+		return err
 	}
 
 	room.BroadcastMessage(jsonData)

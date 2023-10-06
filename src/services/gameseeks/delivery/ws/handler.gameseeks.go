@@ -9,14 +9,16 @@ import (
 	"strings"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/delivery_utils"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 )
 
-const topicName = "gameseeks"
+const topicName = domain_websocket.GameseeksTopic
 
 type GameseeksHandler struct {
-	usecase domain.GameseeksUseCase
-	repo    domain.GameseeksRepo
+	usecase   domain.GameseeksUseCase
+	repo      domain.GameseeksRepo
+	gameTopic domain_websocket.TopicWithParam
 }
 
 type AcceptedGameseek struct {
@@ -27,10 +29,12 @@ type AcceptedGameseek struct {
 func NewGameseeksHandler(
 	repo domain.GameseeksRepo,
 	usecase domain.GameseeksUseCase,
+	gameTopic domain_websocket.TopicWithParam,
 ) GameseeksHandler {
 	handler := GameseeksHandler{
 		usecase,
 		repo,
+		gameTopic,
 	}
 
 	return handler
@@ -49,7 +53,7 @@ func (g GameseeksHandler) HandlerOnSubscribe(
 
 	list, err := g.repo.List(ctx)
 	if err != nil {
-		log.Printf("%s : %v", "GameseeksHandler/HandlerGetGameseeksList/List/ShouldFindList", err)
+		log.Printf("%s : %v", "Handler/Gameseeks/HandlerGetGameseeksList/List/ShouldFindList", err)
 		return errors.New(fmt.Sprintf("There was an error retreiving game seeks. %v", err))
 	}
 
@@ -57,7 +61,7 @@ func (g GameseeksHandler) HandlerOnSubscribe(
 		topicName,
 		domain_websocket.InitEvent,
 		list,
-		"GameseeksHandler/HandlerGetGameseeksList/List/ShouldEncodeIntoJson : %v",
+		"Handler/Gameseeks/HandlerGetGameseeksList/List/ShouldEncodeIntoJson : %v",
 	)
 	return err
 }
@@ -143,12 +147,30 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, game.BlackID, topicName))
 	}
 
-	gameID, err := g.usecase.OnAccept(ctx, game)
+	var gID int
+	gameRoom := domain_websocket.NewRoom([]*domain_websocket.Client{}, "")
+	gameID, err := g.usecase.OnAccept(
+		ctx,
+		game,
+		delivery_utils.GetOnTimeOut(
+			gameRoom,
+			whiteClient,
+			&gID,
+			"Handler/Gameseeks/HandlerAcceptGameseek: error transforming message to json\nerr: %v\n",
+		))
 	if err != nil {
 		return err
 	}
 
-	game.ID = int(gameID)
+	game.ID = gameID
+	gID = gameID
+	gameRoom.ChangeParam(fmt.Sprint(gameID))
+
+	err = g.gameTopic.PushNewRoom(gameRoom)
+	if err != nil {
+		log.Printf("Handler/Gameseeks/HandlerAcceptGameseek, param of game room is an empty string")
+		return err
+	}
 
 	jsonWhiteMessage, err := domain_websocket.NewOutboundMessage(
 		topicName,
@@ -157,7 +179,7 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 			game.ID,
 			domain.White,
 		}).
-		ToJSON("HandlerGameseeks/HandlerAcceptGameseek: error transforming message to json\nerr: %v")
+		ToJSON("Handler/Gameseeks/HandlerAcceptGameseek: error transforming message to json\nerr: %v\n")
 	if err != nil {
 		return err
 	}

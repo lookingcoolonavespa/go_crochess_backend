@@ -10,20 +10,20 @@ type GameFieldJsonTag string
 
 const (
 	GameIdJsonTag              GameFieldJsonTag = "id"
-	GameWhiteIDJsonTag                          = "white_id"
-	GameBlackIDJsonTag                          = "black_id"
-	GameTimeJsonTag                             = "time"
-	GameIncrementJsonTag                        = "increment"
-	GameTimeStampJsonTag                        = "time_stamp_at_turn_start"
-	GameWhiteTimeJsonTag                        = "white_time"
-	GameBlackTimeJsonTag                        = "black_time"
-	GameHistoryJsonTag                          = "history"
-	GameMovesJsonTag                            = "moves"
-	GameResultJsonTag                           = "result"
-	GameMethodJsonTag                           = "method"
-	GameVersionJsonTag                          = "version"
-	GameWhiteDrawStatusJsonTag                  = "white_draw_status"
-	GameBlackDrawStatusJsonTag                  = "black_draw_status"
+	GameWhiteIDJsonTag         GameFieldJsonTag = "white_id"
+	GameBlackIDJsonTag         GameFieldJsonTag = "black_id"
+	GameTimeJsonTag            GameFieldJsonTag = "time"
+	GameIncrementJsonTag       GameFieldJsonTag = "increment"
+	GameTimeStampJsonTag       GameFieldJsonTag = "time_stamp_at_turn_start"
+	GameWhiteTimeJsonTag       GameFieldJsonTag = "white_time"
+	GameBlackTimeJsonTag       GameFieldJsonTag = "black_time"
+	GameHistoryJsonTag         GameFieldJsonTag = "history"
+	GameMovesJsonTag           GameFieldJsonTag = "moves"
+	GameResultJsonTag          GameFieldJsonTag = "result"
+	GameMethodJsonTag          GameFieldJsonTag = "method"
+	GameVersionJsonTag         GameFieldJsonTag = "version"
+	GameWhiteDrawStatusJsonTag GameFieldJsonTag = "white_draw_status"
+	GameBlackDrawStatusJsonTag GameFieldJsonTag = "black_draw_status"
 )
 
 type (
@@ -40,7 +40,7 @@ type (
 		Moves                string `json:"moves"`
 		Result               string `json:"result"`
 		Method               string `json:"method"`
-		Version              int    `json:"version"`
+		Version              int    `db:"version"`
 		WhiteDrawStatus      bool   `json:"white_draw_status"`
 		BlackDrawStatus      bool   `json:"black_draw_status"`
 	}
@@ -51,7 +51,7 @@ type (
 			ctx context.Context,
 			id int,
 			version int,
-			changes utils.Changes[GameFieldJsonTag],
+			changes GameChanges,
 		) (updated bool, err error)
 		Insert(
 			ctx context.Context,
@@ -66,22 +66,24 @@ type (
 			gameID int,
 			playerID string,
 			move string,
-			onTimeOut func(utils.Changes[GameFieldJsonTag]),
-		) (changes utils.Changes[GameFieldJsonTag], updated bool, err error)
+			onTimeOut func(GameChanges),
+		) (changes GameChanges, updated bool, err error)
 		UpdateDraw(
 			ctx context.Context,
 			gameID int,
 			whiteDrawStatus bool,
 			blackDrawStatus bool,
-		) (changes utils.Changes[GameFieldJsonTag], updated bool, err error)
+		) (changes GameChanges, updated bool, err error)
 		UpdateResult(
 			ctx context.Context,
 			gameID int,
 			method string,
 			result string,
-		) (changes utils.Changes[GameFieldJsonTag], updated bool, err error)
+		) (changes GameChanges, updated bool, err error)
 	}
 )
+
+type GameChanges utils.Changes[GameFieldJsonTag]
 
 func (g Game) IsFilledForInsert() (bool, []string) {
 	missingFields := make([]string, 0)

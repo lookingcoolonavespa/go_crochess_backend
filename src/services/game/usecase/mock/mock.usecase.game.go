@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -24,13 +23,13 @@ func (c *MockGameUseCase) UpdateOnMove(
 	gameID int,
 	playerID string,
 	move string,
-	_ func(utils.Changes[domain.GameFieldJsonTag]),
-) (utils.Changes[domain.GameFieldJsonTag], bool, error) {
+	_ func(domain.GameChanges),
+) (domain.GameChanges, bool, error) {
 	args := c.Called(ctx, gameID, playerID, move)
 	changes := args.Get(0)
 	updated := args.Get(1)
 
-	return changes.(utils.Changes[domain.GameFieldJsonTag]), updated.(bool), args.Error(2)
+	return changes.(domain.GameChanges), updated.(bool), args.Error(2)
 }
 
 func (c *MockGameUseCase) UpdateDraw(
@@ -38,10 +37,23 @@ func (c *MockGameUseCase) UpdateDraw(
 	gameID int,
 	whiteDrawStatus bool,
 	blackDrawStatus bool,
-) (utils.Changes[domain.GameFieldJsonTag], bool, error) {
+) (domain.GameChanges, bool, error) {
 	args := c.Called(ctx, gameID, whiteDrawStatus, blackDrawStatus)
 	changes := args.Get(0)
 	updated := args.Get(1)
 
-	return changes.(utils.Changes[domain.GameFieldJsonTag]), updated.(bool), args.Error(2)
+	return changes.(domain.GameChanges), updated.(bool), args.Error(2)
+}
+
+func (c *MockGameUseCase) UpdateResult(
+	ctx context.Context,
+	gameID int,
+	method string,
+	result string,
+) (domain.GameChanges, bool, error) {
+	args := c.Called(ctx, gameID, method, result)
+	changes := args.Get(0)
+	updated := args.Get(1)
+
+	return changes.(domain.GameChanges), updated.(bool), args.Error(2)
 }

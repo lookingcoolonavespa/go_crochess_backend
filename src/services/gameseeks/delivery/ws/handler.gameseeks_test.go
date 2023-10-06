@@ -28,7 +28,7 @@ func TestGameseeksHandler_HandlerOnSubscribe(t *testing.T) {
 
 	mockRepo.On("List", context.Background()).Return(mockGameseeks, nil).Once()
 
-	r := NewGameseeksHandler(mockRepo, mockUseCase)
+	r := NewGameseeksHandler(mockRepo, mockUseCase, domain_websocket.TopicWithParam{})
 
 	messageChan := make(chan []byte)
 	client := domain_websocket.NewClient("0", messageChan, nil, nil)
@@ -62,7 +62,7 @@ func TestGameseeksHandler_HandlerInsertGameseek(t *testing.T) {
 
 	mockRepo.On("Insert", context.Background(), mockGameseek).Return(nil).Once()
 
-	r := NewGameseeksHandler(mockRepo, mockUseCase)
+	r := NewGameseeksHandler(mockRepo, mockUseCase, domain_websocket.TopicWithParam{})
 
 	jsonData, err := json.Marshal(mockGameseek)
 	assert.NoError(t, err)
@@ -91,7 +91,7 @@ func TestGameseeksHandler_HandlerOnUnsubscribe(t *testing.T) {
 		Return(deletedGameseeks, nil).
 		Once()
 
-	r := NewGameseeksHandler(mockRepo, mockUseCase)
+	r := NewGameseeksHandler(mockRepo, mockUseCase, domain_websocket.TopicWithParam{})
 
 	subscribedChannel := make(chan []byte)
 	subscribedClient := domain_websocket.NewClient("0", subscribedChannel, nil, nil)

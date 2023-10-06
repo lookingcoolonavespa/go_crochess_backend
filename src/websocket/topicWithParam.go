@@ -38,7 +38,11 @@ func (tp TopicWithParam) HandleWSMessage(
 	param := tp.findParam(topicName)
 	room, ok := tp.rooms[param]
 	if event == SubscribeEvent && !ok {
-		room = tp.PushNewRoom(param, []*Client{client})
+		room = NewRoom([]*Client{client}, param)
+		err := tp.PushNewRoom(room)
+		if err != nil {
+			return err
+		}
 	}
 
 	_, subscribed := room.clients[client.GetID()]
@@ -59,8 +63,12 @@ func (tp TopicWithParam) RegisterEvent(event string, handleFunc TopicEventHandle
 	tp.events[event] = handleFunc
 }
 
-func (tp TopicWithParam) PushNewRoom(param string, clients []*Client) *Room {
-	room := NewRoom(clients, param)
+func (tp TopicWithParam) PushNewRoom(room *Room) error {
+	param, err := room.GetParam()
+	if err != nil {
+		return err
+	}
+
 	tp.rooms[param] = room
-	return room
+	return nil
 }

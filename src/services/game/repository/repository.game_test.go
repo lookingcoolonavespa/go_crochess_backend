@@ -11,7 +11,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/bxcodec/faker"
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -72,7 +71,6 @@ func TestGameRepo_Update(t *testing.T) {
 
 	defer db.Close()
 
-	gameID := 0
 	mockGame := new(domain.Game)
 
 	err := faker.FakeData(mockGame)
@@ -85,25 +83,26 @@ func TestGameRepo_Update(t *testing.T) {
     UPDATE game 
     SET 
         version = $1,
-        white_time = %d
-    WHERE id = $2
-    AND version = $3
+        white_time = $2
+    WHERE id = %d
+    AND version = %d
     `,
-		newWhiteTime,
+		mockGame.ID,
+		mockGame.Version,
 	)
 
 	mock.ExpectExec(query).
-		WithArgs(newVersion, gameID, mockGame.Version).
-		WillReturnResult(sqlmock.NewResult(int64(gameID), 1))
+		WithArgs(newVersion, newWhiteTime).
+		WillReturnResult(sqlmock.NewResult(int64(mockGame.ID), 1))
 
 	r := NewGameRepo(db)
 
-	changes := make(utils.Changes[domain.GameFieldJsonTag])
+	changes := make(domain.GameChanges)
 	changes[domain.GameWhiteTimeJsonTag] = newWhiteTime
 
 	assert.NoError(t, err)
 
-	updated, err := r.Update(context.Background(), gameID, mockGame.Version, changes)
+	updated, err := r.Update(context.Background(), mockGame.ID, mockGame.Version, changes)
 
 	assert.NoError(t, err)
 	assert.True(t, updated)

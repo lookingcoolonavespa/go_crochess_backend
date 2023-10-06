@@ -12,4 +12,5 @@ const (
 	UpdateDrawEvent   = "update draw"
 	UpdateResultEvent = "update result"
 	GameOverEvent     = "game over"
+	TimeOutEvent      = "time out"
 )

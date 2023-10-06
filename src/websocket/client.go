@@ -56,10 +56,10 @@ func (c *Client) Subscribe(room *Room) error {
 }
 
 func (c *Client) Unsubscribe(room *Room) {
+	room.UnregisterClient(c)
 	if _, ok := c.rooms[room]; ok {
 		delete(c.rooms, room)
 	}
-	room.UnregisterClient(c)
 }
 
 func (c *Client) SendBytes(bytes []byte) {

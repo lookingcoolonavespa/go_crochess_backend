@@ -8,7 +8,6 @@ import (
 	"time"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/utils"
 )
 
 type gameRepo struct {
@@ -102,10 +101,12 @@ func (c gameRepo) Update(
 	ctx context.Context,
 	id int,
 	version int,
-	changes utils.Changes[domain.GameFieldJsonTag],
+	changes domain.GameChanges,
 ) (updated bool, err error) {
+	newVersion := version + 1
 	variableCount := 1
-	updatedValues := []interface{}{version + 1}
+	updatedValues := []interface{}{newVersion}
+
 	var updateStr string
 	for field, value := range changes {
 		variableCount += 1
@@ -130,7 +131,7 @@ func (c gameRepo) Update(
 
 	result, err := c.db.ExecContext(ctx, stmt, updatedValues...)
 	if err != nil {
-		log.Printf("Repo/Game/Updating, error updating game: sql: %s\nerr: %v\n", stmt, err)
+		log.Printf("Repo/Game/Update, error updating game: sql: %s\nerr: %v\n", stmt, err)
 		return false, err
 	}
 
