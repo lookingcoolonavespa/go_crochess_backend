@@ -2,6 +2,7 @@ package delivery_utils
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
@@ -9,22 +10,25 @@ import (
 
 func GetOnTimeOut(
 	room *domain_websocket.Room,
-	client *domain_websocket.Client,
 	gameID *int,
-	jsonErrorMessage string,
 ) func(changes domain.GameChanges) {
 	return func(changes domain.GameChanges) {
 		jsonData, err := domain_websocket.NewOutboundMessage(
-			fmt.Sprint(domain_websocket.GameTopic, "/", *gameID),
+			fmt.Sprint(domain_websocket.GameTopic, "/", gameID),
 			domain_websocket.TimeOutEvent,
 			changes,
 		).
-			ToJSON(jsonErrorMessage)
+			ToJSON("UseCase/Game/OnTimeOut, error converting data to json, err: %v\n")
 		if err != nil {
-			client.SendError(
+			jsonData, err := domain_websocket.NewOutboundMessage(
+				"error", domain_websocket.ErrorEvent,
 				"game timer ran out, but there was an error converting the update to json",
-				jsonErrorMessage,
+			).ToJSON(
+				"UseCase/Game/OnTimeOut, error converting data to json, err: %v\n",
 			)
+			log.Printf("UseCase/Game/OnTimeOut, game timer ran out, but there was an error converting the update to json\nerr: %v", err)
+
+			room.BroadcastMessage(jsonData)
 			return
 		}
 

@@ -130,7 +130,7 @@ func (g GameHandler) HandlerMakeMove(
 		gameID,
 		movePayload.PlayerID,
 		movePayload.Move,
-		delivery_utils.GetOnTimeOut(room, client, &gameID, jsonErrorMessage),
+		delivery_utils.GetOnTimeOut(room, &gameID),
 	)
 	if err != nil {
 		return err

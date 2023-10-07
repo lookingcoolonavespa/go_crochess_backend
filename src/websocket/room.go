@@ -48,7 +48,6 @@ func (r *Room) RegisterClient(client *Client) error {
 func (r *Room) UnregisterClient(client *Client) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	fmt.Println("unregistering client from gameseeks, id: ", client.GetID())
 	if _, ok := r.clients[client.GetID()]; ok {
 		delete(r.clients, client.GetID())
 	}

@@ -139,11 +139,21 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 
 	whiteClient, ok := room.GetClient(game.WhiteID)
 	if !ok {
+		log.Printf(
+			`Handler/Gameseeks/HandlerAcceptGameseek, client "%v" is not subscribed to %s`,
+			game.WhiteID,
+			topicName,
+		)
 		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, game.WhiteID, topicName))
 	}
 
 	blackClient, ok := room.GetClient(game.BlackID)
 	if !ok {
+		log.Printf(
+			`Handler/Gameseeks/HandlerAcceptGameseek, client "%v" is not subscribed to %s`,
+			game.BlackID,
+			topicName,
+		)
 		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, game.BlackID, topicName))
 	}
 
@@ -154,9 +164,7 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 		game,
 		delivery_utils.GetOnTimeOut(
 			gameRoom,
-			whiteClient,
 			&gID,
-			"Handler/Gameseeks/HandlerAcceptGameseek: error transforming message to json\nerr: %v\n",
 		))
 	if err != nil {
 		return err
@@ -198,6 +206,78 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 
 	whiteClient.SendBytes(jsonWhiteMessage)
 	blackClient.SendBytes(jsonBlackMessage)
+
+	return nil
+}
+
+func (g GameseeksHandler) HandlerStartEngineGame(
+	ctx context.Context,
+	room *domain_websocket.Room,
+	client *domain_websocket.Client,
+	payload []byte,
+) error {
+	var game domain.Game
+	err := json.Unmarshal(payload, &game)
+	if err != nil {
+		return err
+	}
+
+	filled, missingFields := game.IsFilledForInsert()
+	if !filled {
+		errorMessage := fmt.Sprintf("game missing the following fields: %v", strings.Join(missingFields, ", "))
+		err := client.SendError(
+			errorMessage,
+			"Handler/Gameseeks/HandlerStartEngineGame, Failed to unmarshal message: %v\n",
+		)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(errorMessage)
+	}
+
+	var gID int
+	gameRoom := domain_websocket.NewRoom([]*domain_websocket.Client{}, "")
+	gameID, err := g.usecase.OnAccept(
+		ctx,
+		game,
+		delivery_utils.GetOnTimeOut(
+			gameRoom,
+			&gID,
+		))
+	if err != nil {
+		return err
+	}
+
+	game.ID = gameID
+	gameRoom.ChangeParam(fmt.Sprint(gameID))
+
+	err = g.gameTopic.PushNewRoom(gameRoom)
+	if err != nil {
+		log.Printf("Handler/Gameseeks/HandlerStartEngineGame, param of game room is an empty string")
+		return err
+	}
+
+	var color domain.Color
+	if game.WhiteID == client.GetID() {
+		color = domain.White
+	} else {
+		color = domain.Black
+	}
+
+	jsonMessage, err := domain_websocket.NewOutboundMessage(
+		topicName,
+		domain_websocket.AcceptEvent,
+		AcceptedGameseek{
+			game.ID,
+			color,
+		}).
+		ToJSON("Handler/Gameseeks/HandlerStartEngineGame: error transforming message to json\nerr: %v\n")
+	if err != nil {
+		return err
+	}
+
+	client.SendBytes(jsonMessage)
 
 	return nil
 }

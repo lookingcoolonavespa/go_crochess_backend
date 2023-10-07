@@ -47,15 +47,17 @@ func (c gameUseCase) OnAccept(
 		return -1, err
 	}
 
-	c.handleTimer(
-		ctx,
-		onTimeOut,
-		gameID,
-		1,
-		intToMillisecondsDuration(g.Time),
-		chess.White,
-		false,
-	)
+	if g.WhiteID != "engine" && g.BlackID != "engine" {
+		c.handleTimer(
+			ctx,
+			onTimeOut,
+			gameID,
+			1,
+			intToMillisecondsDuration(g.Time),
+			chess.White,
+			false,
+		)
+	}
 
 	return gameID, nil
 }
@@ -227,15 +229,17 @@ func (c gameUseCase) UpdateOnMove(
 
 	_, gameOver := changes["Result"]
 
-	c.handleTimer(
-		context.Background(),
-		onTimeOut,
-		gameID,
-		g.Version+1,
-		timerDuration,
-		activeColor,
-		gameOver,
-	)
+	if g.WhiteID != "engine" && g.BlackID != "engine" {
+		c.handleTimer(
+			context.Background(),
+			onTimeOut,
+			gameID,
+			g.Version+1,
+			timerDuration,
+			activeColor,
+			gameOver,
+		)
+	}
 
 	return changes, true, nil
 }

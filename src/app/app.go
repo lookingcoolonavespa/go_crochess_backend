@@ -103,6 +103,7 @@ func initHandlers(db *sql.DB) {
 	gameseeksTopic.RegisterEvent(domain_websocket.InsertEvent, gameseeksHandler.HandleGameseekInsert)
 	gameseeksTopic.RegisterEvent(domain_websocket.UnsubscribeEvent, gameseeksHandler.HandlerOnUnsubscribe)
 	gameseeksTopic.RegisterEvent(domain_websocket.AcceptEvent, gameseeksHandler.HandlerAcceptGameseek)
+	gameseeksTopic.RegisterEvent(domain_websocket.StartEngineGameEvent, gameseeksHandler.HandlerStartEngineGame)
 
 	webSocketRouter, err := domain_websocket.NewWebSocketRouter()
 	if err != nil {
