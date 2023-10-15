@@ -1,0 +1,27 @@
+networks:
+  droplet-network:
+    external: true
+
+services:
+  crochess_backend:
+    build:
+      context: .
+    container_name: crochess_go
+    depends_on: 
+      - postgres
+    image: lipsbyburtsbees/crochess_go:latest
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: scribe
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d

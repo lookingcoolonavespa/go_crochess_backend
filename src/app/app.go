@@ -62,11 +62,6 @@ func initDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	// err = migrations.Up(db)
-	// if err != nil {
-	// 	log.Fatalf("error on migratre schema: %v", err)
-	// }
-
 	return db, nil
 }
 
