@@ -1,3 +1,0 @@
-CREATE USER crochess_user WITH LOGIN PASSWORD 'password';
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA crochess TO crochess;
-GRANT SELECT, INSERT, DELETE, UPDATE, ON SCHEMA crochess TO crochess_user;

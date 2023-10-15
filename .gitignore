@@ -1,4 +1,3 @@
 .config.toml
 migrations/a_user.sql
 docker-compose.yaml
-src
