@@ -1,6 +1,6 @@
 module github.com/lookingcoolonavespa/go_crochess_backend
 
-go 1.21.1
+go 1.21.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
