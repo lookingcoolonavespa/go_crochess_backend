@@ -13,6 +13,7 @@ import (
 	"github.com/bxcodec/faker"
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/repository/mock"
+	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 	"github.com/notnil/chess"
 	"github.com/stretchr/testify/assert"
 )
@@ -78,7 +79,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			mockGame.ID,
 			mockGame.WhiteID,
 			move,
-			func(c domain.GameChanges) {},
+			nil,
 		)
 		assert.NoError(t, err)
 
@@ -118,7 +119,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			mockGame2.ID,
 			mockGame2.BlackID,
 			move,
-			func(domain.GameChanges) {},
+			nil,
 		)
 		assert.NoError(t, err)
 
@@ -155,7 +156,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			mockGame2.ID,
 			mockGame2.BlackID,
 			move,
-			func(domain.GameChanges) {},
+			nil,
 		)
 		assert.NoError(t, err)
 
@@ -190,7 +191,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			mockGame2.ID,
 			mockGame2.BlackID,
 			move,
-			func(domain.GameChanges) {},
+			nil,
 		)
 		assert.NoError(t, err)
 
@@ -206,7 +207,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			mockGame.ID,
 			mockGame.WhiteID,
 			"d4d5",
-			func(domain.GameChanges) {},
+			nil,
 		)
 		assert.Error(t, err)
 
@@ -223,7 +224,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			mockGame.ID,
 			mockGame.WhiteID,
 			"d2d4",
-			func(domain.GameChanges) {},
+			nil,
 		)
 		assert.Error(t, err)
 
@@ -249,7 +250,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			mockGame.ID,
 			mockGame.WhiteID,
 			"d2d4",
-			func(domain.GameChanges) {},
+			nil,
 		)
 		assert.Error(t, err)
 
@@ -283,19 +284,21 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			},
 		).Return(true, nil).Once()
 
-		channel := make(chan string)
-		gameOverMsg := "Game Over"
+		channel := make(chan []byte)
+
 		gameUseCase := NewGameUseCase(
 			db,
 			mockGameRepo,
 		)
 
+		mockClient := domain_websocket.NewClient("dfa", channel, nil, nil)
+		room := domain_websocket.NewRoom([]domain.Client{mockClient}, "515")
 		_, _, err := gameUseCase.UpdateOnMove(
 			context.Background(),
 			mockGame.ID,
 			mockGame.WhiteID,
 			move,
-			func(domain.GameChanges) { go func() { channel <- gameOverMsg }() },
+			room,
 		)
 		assert.NoError(t, err)
 
@@ -304,8 +307,8 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			timeOutChan <- "time out"
 		})
 		select {
-		case msg := <-channel:
-			assert.Equal(t, msg, gameOverMsg)
+		case <-channel:
+			assert.NoError(t, err)
 		case <-timeOutChan:
 			break
 		}
@@ -342,7 +345,7 @@ func TestGameUseCase_OnAccept(t *testing.T) {
 			Return(testGameID, nil).
 			Once()
 
-		gameID, err := gameseeksUseCase.OnAccept(context.Background(), mockGame, func(gc domain.GameChanges) {})
+		gameID, err := gameseeksUseCase.OnAccept(context.Background(), mockGame, nil)
 		assert.NoError(t, err)
 
 		assert.Equal(t, testGameID, gameID)
@@ -355,7 +358,7 @@ func TestGameUseCase_OnAccept(t *testing.T) {
 			Return(-1, errors.New("Unexpected")).
 			Once()
 
-		_, err := gameseeksUseCase.OnAccept(context.Background(), mockGame, func(gc domain.GameChanges) {})
+		_, err := gameseeksUseCase.OnAccept(context.Background(), mockGame, nil)
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)

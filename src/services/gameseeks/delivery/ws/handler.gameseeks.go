@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/delivery_utils"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 )
 
@@ -42,8 +41,8 @@ func NewGameseeksHandler(
 
 func (g GameseeksHandler) HandlerOnSubscribe(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	_ []byte,
 ) error {
 	err := client.Subscribe(room)
@@ -68,8 +67,8 @@ func (g GameseeksHandler) HandlerOnSubscribe(
 
 func (g GameseeksHandler) HandleGameseekInsert(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	jsonGameseek []byte,
 ) error {
 	var gs domain.Gameseek
@@ -113,8 +112,8 @@ func (g GameseeksHandler) HandleGameseekInsert(
 
 func (g GameseeksHandler) HandlerAcceptGameseek(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	payload []byte,
 ) error {
 	var game domain.Game
@@ -157,21 +156,17 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 		return errors.New(fmt.Sprintf(`client "%v" is not subscribed to %s`, game.BlackID, topicName))
 	}
 
-	var gID int
-	gameRoom := domain_websocket.NewRoom([]*domain_websocket.Client{}, "")
+	gameRoom := domain_websocket.NewRoom([]domain.Client{}, "")
 	gameID, err := g.usecase.OnAccept(
 		ctx,
 		game,
-		delivery_utils.GetOnTimeOut(
-			gameRoom,
-			&gID,
-		))
+		gameRoom,
+	)
 	if err != nil {
 		return err
 	}
 
 	game.ID = gameID
-	gID = gameID
 	gameRoom.ChangeParam(fmt.Sprint(gameID))
 
 	err = g.gameTopic.PushNewRoom(gameRoom)
@@ -212,8 +207,8 @@ func (g GameseeksHandler) HandlerAcceptGameseek(
 
 func (g GameseeksHandler) HandlerStartEngineGame(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	payload []byte,
 ) error {
 	var game domain.Game
@@ -236,15 +231,12 @@ func (g GameseeksHandler) HandlerStartEngineGame(
 		return errors.New(errorMessage)
 	}
 
-	var gID int
-	gameRoom := domain_websocket.NewRoom([]*domain_websocket.Client{}, "")
+	gameRoom := domain_websocket.NewRoom([]domain.Client{}, "")
 	gameID, err := g.usecase.OnAccept(
 		ctx,
 		game,
-		delivery_utils.GetOnTimeOut(
-			gameRoom,
-			&gID,
-		))
+		room,
+	)
 	if err != nil {
 		return err
 	}
@@ -284,8 +276,8 @@ func (g GameseeksHandler) HandlerStartEngineGame(
 
 func (g GameseeksHandler) HandlerOnUnsubscribe(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	_ []byte,
 ) error {
 	client.Unsubscribe(room)

@@ -22,7 +22,7 @@ type (
 		OnAccept(
 			ctx context.Context,
 			g Game,
-			onTimeOut func(GameChanges),
+			r Room,
 		) (gameID int, err error)
 	}
 )

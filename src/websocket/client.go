@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	"nhooyr.io/websocket"
 )
 
@@ -18,7 +19,7 @@ type Client struct {
 	conn     *websocket.Conn
 	send     chan []byte
 	wsServer *WebSocketServer
-	rooms    map[*Room]bool
+	rooms    map[domain.Room]bool
 }
 
 func NewClient(
@@ -32,7 +33,7 @@ func NewClient(
 		conn,
 		sendChan,
 		wsServer,
-		make(map[*Room]bool, 0),
+		make(map[domain.Room]bool, 0),
 	}
 }
 
@@ -40,7 +41,7 @@ func (c Client) GetID() string {
 	return c.id
 }
 
-func (c *Client) Subscribe(room *Room) error {
+func (c *Client) Subscribe(room domain.Room) error {
 	err := room.RegisterClient(c)
 	if err != nil {
 		return err
@@ -55,7 +56,7 @@ func (c *Client) Subscribe(room *Room) error {
 	return nil
 }
 
-func (c *Client) Unsubscribe(room *Room) {
+func (c *Client) Unsubscribe(room domain.Room) {
 	room.UnregisterClient(c)
 	if _, ok := c.rooms[room]; ok {
 		delete(c.rooms, room)

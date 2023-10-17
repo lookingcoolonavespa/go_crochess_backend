@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 )
 
-type TopicEventHandler = func(context.Context, *Room, *Client, []byte) error
+type TopicEventHandler = func(context.Context, domain.Room, domain.Client, []byte) error
 
 type Topic interface {
 	HandleWSMessage(
@@ -79,7 +81,7 @@ func NewTopic(
 		return TopicWithoutParm{
 				name:    topic,
 				matcher: topicRE,
-				room:    NewRoom(make([]*Client, 0), ""),
+				room:    NewRoom(make([]domain.Client, 0), ""),
 				events:  make(map[string]TopicEventHandler),
 			},
 			nil

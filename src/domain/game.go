@@ -66,7 +66,7 @@ type (
 			gameID int,
 			playerID string,
 			move string,
-			onTimeOut func(GameChanges),
+			room Room,
 		) (changes GameChanges, updated bool, err error)
 		UpdateDraw(
 			ctx context.Context,

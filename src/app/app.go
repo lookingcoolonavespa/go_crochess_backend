@@ -113,6 +113,7 @@ func initHandlers(db *sql.DB) {
 	http.HandleFunc("/ws", webSocketServer.HandleWS)
 
 	log.Printf("listening on port %d\n", viper.GetInt("app.port"))
+	log.Printf("allowed origin: %s", viper.GetString(fmt.Sprintf("%s.origin", os.Getenv("APP_ENV"))))
 	srv := &http.Server{
 		Addr: fmt.Sprintf(":%d", viper.GetInt("app.port")),
 	}

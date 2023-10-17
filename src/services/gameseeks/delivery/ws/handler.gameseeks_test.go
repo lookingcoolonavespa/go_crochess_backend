@@ -33,7 +33,7 @@ func TestGameseeksHandler_HandlerOnSubscribe(t *testing.T) {
 	messageChan := make(chan []byte)
 	client := domain_websocket.NewClient("0", messageChan, nil, nil)
 
-	room := domain_websocket.NewRoom(make([]*domain_websocket.Client, 0), "")
+	room := domain_websocket.NewRoom(make([]domain.Client, 0), "")
 	err = r.HandlerOnSubscribe(context.Background(), room, client, nil)
 	assert.NoError(t, err)
 
@@ -69,7 +69,7 @@ func TestGameseeksHandler_HandlerInsertGameseek(t *testing.T) {
 
 	testChannel := make(chan []byte)
 	client := domain_websocket.NewClient("0", testChannel, nil, nil)
-	room := domain_websocket.NewRoom([]*domain_websocket.Client{client}, "")
+	room := domain_websocket.NewRoom([]domain.Client{client}, "")
 
 	err = r.HandleGameseekInsert(context.Background(), room, nil, jsonData)
 
@@ -96,7 +96,7 @@ func TestGameseeksHandler_HandlerOnUnsubscribe(t *testing.T) {
 	subscribedChannel := make(chan []byte)
 	subscribedClient := domain_websocket.NewClient("0", subscribedChannel, nil, nil)
 	room := domain_websocket.NewRoom(
-		[]*domain_websocket.Client{unsubscribeClient, subscribedClient},
+		[]domain.Client{unsubscribeClient, subscribedClient},
 		"",
 	)
 

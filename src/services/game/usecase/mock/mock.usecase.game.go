@@ -23,9 +23,9 @@ func (c *MockGameUseCase) UpdateOnMove(
 	gameID int,
 	playerID string,
 	move string,
-	_ func(domain.GameChanges),
+	room domain.Room,
 ) (domain.GameChanges, bool, error) {
-	args := c.Called(ctx, gameID, playerID, move)
+	args := c.Called(ctx, gameID, playerID, move, room)
 	changes := args.Get(0)
 	updated := args.Get(1)
 

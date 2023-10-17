@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 )
 
 type TopicWithParam struct {
@@ -38,7 +40,7 @@ func (tp TopicWithParam) HandleWSMessage(
 	param := tp.findParam(topicName)
 	room, ok := tp.rooms[param]
 	if event == SubscribeEvent && !ok {
-		room = NewRoom([]*Client{client}, param)
+		room = NewRoom([]domain.Client{client}, param)
 		err := tp.PushNewRoom(room)
 		if err != nil {
 			return err

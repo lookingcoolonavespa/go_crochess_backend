@@ -4,16 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 )
 
 type Room struct {
-	clients map[string]*Client
+	clients map[string]domain.Client
 	param   string
 	mutex   sync.Mutex
 }
 
-func NewRoom(clients []*Client, param string) *Room {
-	clientMap := make(map[string]*Client)
+func NewRoom(clients []domain.Client, param string) *Room {
+	clientMap := make(map[string]domain.Client)
 	for _, client := range clients {
 		clientMap[client.GetID()] = client
 	}
@@ -32,7 +34,7 @@ func (r *Room) BroadcastMessage(message []byte) {
 	}
 }
 
-func (r *Room) RegisterClient(client *Client) error {
+func (r *Room) RegisterClient(client domain.Client) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	_, ok := r.clients[client.GetID()]
@@ -45,7 +47,7 @@ func (r *Room) RegisterClient(client *Client) error {
 	return nil
 }
 
-func (r *Room) UnregisterClient(client *Client) {
+func (r *Room) UnregisterClient(client domain.Client) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	if _, ok := r.clients[client.GetID()]; ok {
@@ -65,7 +67,7 @@ func (r *Room) GetParam() (string, error) {
 	return r.param, nil
 }
 
-func (r *Room) GetClient(id string) (*Client, bool) {
+func (r *Room) GetClient(id string) (domain.Client, bool) {
 	client, ok := r.clients[id]
 	return client, ok
 }

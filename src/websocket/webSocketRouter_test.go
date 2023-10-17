@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,7 +39,7 @@ func setupWebSocketRouter(t *testing.T, expected string) (WebSocketRouter, chan 
 
 	successChan := make(chan string)
 	successStr := "success"
-	mockHandleFunc := func(ctx context.Context, room *Room, client *Client, payload []byte) error {
+	mockHandleFunc := func(ctx context.Context, room domain.Room, client domain.Client, payload []byte) error {
 		if string(payload) != string(expectedPayload) {
 			return errors.New(fmt.Sprintf("expected payload: %v\nreceived payload: %v", expectedPayload[1], (payload)))
 		}

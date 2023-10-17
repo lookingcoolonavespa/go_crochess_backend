@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -150,7 +151,7 @@ func TestTopic_TopicWithoutParam_HandleWSMessage(t *testing.T) {
 		assert.NoError(t, err)
 
 		msgChan := make(chan string)
-		handleFunc := func(context.Context, *Room, *Client, []byte) error {
+		handleFunc := func(context.Context, domain.Room, domain.Client, []byte) error {
 			go func() {
 				msgChan <- successStr
 			}()
@@ -226,7 +227,7 @@ func TestTopic_TopicWithParam_HandleWSMessage(t *testing.T) {
 		assert.NoError(t, err)
 
 		msgChan := make(chan string)
-		handleFunc := func(context.Context, *Room, *Client, []byte) error {
+		handleFunc := func(context.Context, domain.Room, domain.Client, []byte) error {
 			go func() {
 				msgChan <- successStr
 			}()

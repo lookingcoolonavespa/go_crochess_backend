@@ -13,9 +13,9 @@ type GameseeksMockUseCase struct {
 func (c *GameseeksMockUseCase) OnAccept(
 	ctx context.Context,
 	g domain.Game,
-	onTimeout func(domain.GameChanges),
+	r domain.Room,
 ) (int, error) {
-	args := c.Called(ctx, g, onTimeout)
+	args := c.Called(ctx, g, r)
 	id := args.Get(0)
 
 	return id.(int), args.Error(1)

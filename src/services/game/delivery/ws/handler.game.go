@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/services/delivery_utils"
 	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 )
 
@@ -32,8 +31,8 @@ func NewGameHandler(
 
 func (g GameHandler) HandlerOnSubscribe(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	_ []byte,
 ) error {
 	err := client.Subscribe(room)
@@ -68,8 +67,8 @@ func (g GameHandler) HandlerOnSubscribe(
 
 func (g GameHandler) HandlerOnUnsubscribe(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	_ []byte,
 ) error {
 	client.Unsubscribe(room)
@@ -78,8 +77,8 @@ func (g GameHandler) HandlerOnUnsubscribe(
 
 func (g GameHandler) HandlerMakeMove(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	payload []byte,
 ) error {
 	gID, err := room.GetParam()
@@ -130,7 +129,7 @@ func (g GameHandler) HandlerMakeMove(
 		gameID,
 		movePayload.PlayerID,
 		movePayload.Move,
-		delivery_utils.GetOnTimeOut(room, &gameID),
+		room,
 	)
 	if err != nil {
 		return err
@@ -168,8 +167,8 @@ func (g GameHandler) HandlerMakeMove(
 
 func (g GameHandler) HandlerUpdateDraw(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	payload []byte,
 ) error {
 	gID, err := room.GetParam()
@@ -225,8 +224,8 @@ func (g GameHandler) HandlerUpdateDraw(
 
 func (g GameHandler) HandlerUpdateResult(
 	ctx context.Context,
-	room *domain_websocket.Room,
-	client *domain_websocket.Client,
+	room domain.Room,
+	client domain.Client,
 	payload []byte,
 ) error {
 	gID, err := room.GetParam()

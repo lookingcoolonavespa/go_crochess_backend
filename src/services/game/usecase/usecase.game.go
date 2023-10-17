@@ -11,6 +11,7 @@ import (
 
 	domain "github.com/lookingcoolonavespa/go_crochess_backend/src/domain"
 	domain_timerManager "github.com/lookingcoolonavespa/go_crochess_backend/src/domain/timerManager"
+	domain_websocket "github.com/lookingcoolonavespa/go_crochess_backend/src/websocket"
 	"github.com/notnil/chess"
 )
 
@@ -33,10 +34,38 @@ func NewGameUseCase(
 	}
 }
 
+func getOnTimeOut(
+	room domain.Room,
+	gameID int,
+) func(changes domain.GameChanges) {
+	return func(changes domain.GameChanges) {
+		jsonData, err := domain_websocket.NewOutboundMessage(
+			fmt.Sprint(domain_websocket.GameTopic, "/", gameID),
+			domain_websocket.TimeOutEvent,
+			changes,
+		).
+			ToJSON("UseCase/Game/OnTimeOut, error converting data to json, err: %v\n")
+		if err != nil {
+			jsonData, err := domain_websocket.NewOutboundMessage(
+				"error", domain_websocket.ErrorEvent,
+				"game timer ran out, but there was an error converting the update to json",
+			).ToJSON(
+				"UseCase/Game/OnTimeOut, error converting data to json, err: %v\n",
+			)
+			log.Printf("UseCase/Game/OnTimeOut, game timer ran out, but there was an error converting the update to json\nerr: %v", err)
+
+			room.BroadcastMessage(jsonData)
+			return
+		}
+
+		room.BroadcastMessage(jsonData)
+	}
+}
+
 func (c gameUseCase) OnAccept(
 	ctx context.Context,
 	g domain.Game,
-	onTimeOut func(domain.GameChanges),
+	r domain.Room,
 ) (gameID int, err error) {
 	g.TimeStampAtTurnStart = timeNow().UnixMilli()
 	g.WhiteTime = g.Time
@@ -50,7 +79,7 @@ func (c gameUseCase) OnAccept(
 	if g.WhiteID != "engine" && g.BlackID != "engine" {
 		c.handleTimer(
 			ctx,
-			onTimeOut,
+			getOnTimeOut(r, gameID),
 			gameID,
 			1,
 			intToMillisecondsDuration(g.Time),
@@ -196,7 +225,7 @@ func (c gameUseCase) UpdateOnMove(
 	gameID int,
 	playerID string,
 	move string,
-	onTimeOut func(domain.GameChanges),
+	room domain.Room,
 ) (changes domain.GameChanges, updated bool, err error) {
 	g, err := c.gameRepo.Get(ctx, gameID)
 	if err != nil {
@@ -232,7 +261,7 @@ func (c gameUseCase) UpdateOnMove(
 	if g.WhiteID != "engine" && g.BlackID != "engine" {
 		c.handleTimer(
 			context.Background(),
-			onTimeOut,
+			getOnTimeOut(room, gameID),
 			gameID,
 			g.Version+1,
 			timerDuration,

@@ -34,7 +34,6 @@ func NewWebSocketServer(r WebSocketRouter, gameseeksRepo domain.GameseeksRepo) W
 }
 
 func (s *WebSocketServer) HandleWS(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("%v", r)
 	wsConfig := websocket.AcceptOptions{
 		InsecureSkipVerify: false,
 		OriginPatterns:     []string{viper.GetString(fmt.Sprintf("%s.origin", os.Getenv("APP_ENV")))},
