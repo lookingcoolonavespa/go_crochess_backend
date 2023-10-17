@@ -46,7 +46,6 @@ func Up(db *sql.DB) error {
 			}
 
 		cmd := exec.Command("psql", args...)
-		log.Println(cmd)
 
 		err = cmd.Run()
 		if err != nil {
