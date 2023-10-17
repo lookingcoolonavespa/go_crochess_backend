@@ -1,4 +1,4 @@
 .config.toml
-migrations/a_user.sql
+src/database/migrations/seed.sql
 docker-compose.yaml
 vendor

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/lookingcoolonavespa/go_crochess_backend/src/database"
-	"github.com/lookingcoolonavespa/go_crochess_backend/src/database/migrations"
 	delivery_ws_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/delivery/ws"
 	repository_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/repository"
 	usecase_game "github.com/lookingcoolonavespa/go_crochess_backend/src/services/game/usecase"
@@ -63,11 +62,6 @@ func initDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	err = migrations.Up(db)
-	if err != nil {
-		log.Fatalf("error on migratre schema: %v", err)
-	}
-
 	return db, nil
 }
 
@@ -116,8 +110,9 @@ func initHandlers(db *sql.DB) {
 
 	webSocketServer := domain_websocket.NewWebSocketServer(webSocketRouter, gameseeksRepo)
 
-	http.HandleFunc("/ws", domain_websocket.CORS(webSocketServer.HandleWS))
+	http.HandleFunc("/ws", webSocketServer.HandleWS)
 
+	log.Printf("listening on port %d\n", viper.GetInt("app.port"))
 	srv := &http.Server{
 		Addr: fmt.Sprintf(":%d", viper.GetInt("app.port")),
 	}

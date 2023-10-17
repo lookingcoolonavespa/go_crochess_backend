@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 )
 
 func Up(db *sql.DB) error {
+	fmt.Println(filepath.Abs("./src/database/migrations/*.sql"))
 	files, err := filepath.Glob("./src/database/migrations/*.sql")
 	if err != nil {
 		return err
