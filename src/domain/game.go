@@ -17,7 +17,6 @@ const (
 	GameTimeStampJsonTag       GameFieldJsonTag = "time_stamp_at_turn_start"
 	GameWhiteTimeJsonTag       GameFieldJsonTag = "white_time"
 	GameBlackTimeJsonTag       GameFieldJsonTag = "black_time"
-	GameHistoryJsonTag         GameFieldJsonTag = "history"
 	GameMovesJsonTag           GameFieldJsonTag = "moves"
 	GameResultJsonTag          GameFieldJsonTag = "result"
 	GameMethodJsonTag          GameFieldJsonTag = "method"
@@ -36,7 +35,6 @@ type (
 		TimeStampAtTurnStart int64  `json:"time_stamp_at_turn_start"`
 		WhiteTime            int    `json:"white_time"`
 		BlackTime            int    `json:"black_time"`
-		History              string `json:"history"`
 		Moves                string `json:"moves"`
 		Result               string `json:"result"`
 		Method               string `json:"method"`

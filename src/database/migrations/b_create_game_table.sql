@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS crochess.game (
     time_stamp_at_turn_start BIGINT,
     white_time INT,
     black_time INT,
-    history TEXT DEFAULT '',
     moves TEXT DEFAULT '',
     black_draw_status BOOLEAN DEFAULT false,
     white_draw_status BOOLEAN DEFAULT false

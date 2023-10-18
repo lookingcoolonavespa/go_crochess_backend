@@ -15,6 +15,8 @@ import (
 	"github.com/notnil/chess"
 )
 
+var gameCache = make(map[int]*chess.Game)
+
 var timeNow = time.Now
 
 type gameUseCase struct {
@@ -109,18 +111,23 @@ func makeMove(
 	// the active color, and errors
 	changes := make(domain.GameChanges)
 
-	gameState := chess.NewGame(chess.UseNotation(chess.UCINotation{}))
-	moves := strings.Split(g.Moves, " ")
+	gameState, ok := gameCache[g.ID]
+	if !ok {
+		gameState = chess.NewGame(chess.UseNotation(chess.UCINotation{}))
+		moves := strings.Split(g.Moves, " ")
 
-	for _, m := range moves {
-		if m == "" {
-			break
+		for _, m := range moves {
+			if m == "" {
+				break
+			}
+			err := gameState.MoveStr(m)
+			if err != nil {
+				log.Printf("Usecase/Game/makeMove, error making move to game state\nmove: %s\nerr: %v", m, err)
+				return nil, chess.NoColor, err
+			}
 		}
-		err := gameState.MoveStr(m)
-		if err != nil {
-			log.Printf("Usecase/Game/makeMove, error making move to game state\nmove: %s\nerr: %v", m, err)
-			return nil, chess.NoColor, err
-		}
+
+		gameCache[g.ID] = gameState
 	}
 
 	activeColor := gameState.Position().Turn()
@@ -167,14 +174,7 @@ func makeMove(
 	changes[fieldOfActiveTime] = base + (g.Increment * 1000)
 	changes[domain.GameTimeStampJsonTag] = timeNow().UnixMilli()
 
-	if len(g.Moves) > 0 {
-		changes[domain.GameMovesJsonTag] = g.Moves + fmt.Sprintf(" %s", move)
-	} else {
-		changes[domain.GameMovesJsonTag] = fmt.Sprintf("%s", move)
-	}
-
-	gameState.ChangeNotation(chess.AlgebraicNotation{})
-	changes[domain.GameHistoryJsonTag] = strings.TrimLeft(gameState.String(), "\n")
+	changes[domain.GameMovesJsonTag] = fmt.Sprintf("%s", move)
 
 	return changes, activeColor.Other(), nil
 }
@@ -190,6 +190,7 @@ func (c gameUseCase) handleTimer(
 	if gameOver {
 		c.timerManager.StopAndDeleteTimer(gameID)
 	} else {
+		fmt.Println("starting timer: ", gameID)
 		c.timerManager.StartTimer(gameID, duration, func() {
 			changes := make(domain.GameChanges)
 			changes[domain.GameMethodJsonTag] = "TimeOut"
@@ -256,7 +257,7 @@ func (c gameUseCase) UpdateOnMove(
 		timerDuration = intToMillisecondsDuration(g.BlackTime)
 	}
 
-	_, gameOver := changes["Result"]
+	_, gameOver := changes[domain.GameResultJsonTag]
 
 	if g.WhiteID != "engine" && g.BlackID != "engine" {
 		c.handleTimer(

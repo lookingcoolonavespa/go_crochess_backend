@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -45,21 +44,24 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		TimeStampAtTurnStart: timeNow().UnixMilli(),
 		WhiteTime:            600,
 		BlackTime:            600,
-		History:              "1. e4 e5 2. Nf3 Nf6",
 		Moves:                "e2e4 e7e5 g1f3 g8f6",
 		Result:               "",
 		Method:               "",
 		Version:              1,
 	}
 
+	teardown := func(gameID int) {
+		gameCache = make(map[int]*chess.Game)
+		gameUseCase.timerManager.StopAndDeleteTimer(gameID)
+	}
+
 	t.Run("Success on regular move", func(t *testing.T) {
 		move := "d2d4"
 
 		changes := domain.GameChanges{
-			domain.GameHistoryJsonTag:         "1. e4 e5 2. Nf3 Nf6 3. d4 *",
 			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
 			domain.GameWhiteTimeJsonTag:       mockGame.WhiteTime + (mockGame.Increment * 1000),
-			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame.Moves, move),
+			domain.GameMovesJsonTag:           move,
 			domain.GameWhiteDrawStatusJsonTag: false,
 			domain.GameBlackDrawStatusJsonTag: false,
 		}
@@ -84,18 +86,17 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		assert.NoError(t, err)
 
 		mockGameRepo.AssertExpectations(t)
-		gameUseCase.timerManager.StopAndDeleteTimer(mockGame.ID)
+
+		teardown(mockGame.ID)
 	})
 
 	t.Run("Success on checkmate", func(t *testing.T) {
 		mockGame2 := mockGame
 		mockGame2.Moves = "f2f4 e7e5 g2g4"
-		mockGame2.History = "1. f4 e5 2. g4 *"
 
 		move := "d8h4"
 		changes := domain.GameChanges{
-			domain.GameHistoryJsonTag:         "1. f4 e5 2. g4 Qh4#  0-1",
-			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			domain.GameMovesJsonTag:           move,
 			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
 			domain.GameBlackTimeJsonTag:       mockGame.BlackTime + (mockGame.Increment * 1000),
 			domain.GameResultJsonTag:          chess.BlackWon.String(),
@@ -124,18 +125,17 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		assert.NoError(t, err)
 
 		mockGameRepo.AssertExpectations(t)
-		gameUseCase.timerManager.StopAndDeleteTimer(mockGame.ID)
+
+		teardown(mockGame2.ID)
 	})
 
 	t.Run("Success on fivefold repetition", func(t *testing.T) {
 		mockGame2 := mockGame
 		mockGame2.Moves = "e2e4 e7e5 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1"
-		mockGame2.History = "1. e2e4 e7e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 *"
 
 		move := "e7f8"
 		changes := domain.GameChanges{
-			domain.GameHistoryJsonTag:         "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8 10. Be2 Be7 11. Bf1 Bf8  1/2-1/2",
-			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			domain.GameMovesJsonTag:           move,
 			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
 			domain.GameBlackTimeJsonTag:       mockGame.BlackTime + (mockGame.Increment * 1000),
 			domain.GameResultJsonTag:          chess.Draw.String(),
@@ -161,18 +161,17 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		assert.NoError(t, err)
 
 		mockGameRepo.AssertExpectations(t)
-		gameUseCase.timerManager.StopAndDeleteTimer(mockGame.ID)
+
+		teardown(mockGame.ID)
 	})
 
 	t.Run("Success on threefold repetition", func(t *testing.T) {
 		mockGame2 := mockGame
 		mockGame2.Moves = "e2e4 e7e5 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1 e7f8 f1e2 f8e7 e2f1"
-		mockGame2.History = "1. e2e4 e7e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 *"
 
 		move := "e7f8"
 		changes := domain.GameChanges{
-			domain.GameHistoryJsonTag:         "1. e4 e5 2. Be2 Be7 3. Bf1 Bf8 4. Be2 Be7 5. Bf1 Bf8 6. Be2 Be7 7. Bf1 Bf8 8. Be2 Be7 9. Bf1 Bf8  *",
-			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame2.Moves, move),
+			domain.GameMovesJsonTag:           move,
 			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
 			domain.GameBlackTimeJsonTag:       mockGame.BlackTime + (mockGame.Increment * 1000),
 			domain.GameWhiteDrawStatusJsonTag: true,
@@ -196,7 +195,8 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		assert.NoError(t, err)
 
 		mockGameRepo.AssertExpectations(t)
-		gameUseCase.timerManager.StopAndDeleteTimer(mockGame.ID)
+
+		teardown(mockGame.ID)
 	})
 
 	t.Run("Failed on invalid move", func(t *testing.T) {
@@ -212,7 +212,8 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)
-		gameUseCase.timerManager.StopAndDeleteTimer(mockGame.ID)
+
+		teardown(mockGame.ID)
 	})
 
 	t.Run("Failed on Get", func(t *testing.T) {
@@ -229,15 +230,16 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)
-		gameUseCase.timerManager.StopAndDeleteTimer(mockGame.ID)
+
+		teardown(mockGame.ID)
 	})
 
 	t.Run("Failed on Update", func(t *testing.T) {
+		move := "d2d4"
 		changes := domain.GameChanges{
-			domain.GameHistoryJsonTag:         "1. e4 e5 2. Nf3 Nf6 3. d4 *",
 			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
 			domain.GameWhiteTimeJsonTag:       mockGame.WhiteTime + (mockGame.Increment * 1000),
-			domain.GameMovesJsonTag:           "e2e4 e7e5 g1f3 g8f6 d2d4",
+			domain.GameMovesJsonTag:           move,
 			domain.GameWhiteDrawStatusJsonTag: false,
 			domain.GameBlackDrawStatusJsonTag: false,
 		}
@@ -249,13 +251,14 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 			context.Background(),
 			mockGame.ID,
 			mockGame.WhiteID,
-			"d2d4",
+			move,
 			nil,
 		)
 		assert.Error(t, err)
 
 		mockGameRepo.AssertExpectations(t)
-		gameUseCase.timerManager.StopAndDeleteTimer(mockGame.ID)
+
+		teardown(mockGame.ID)
 	})
 
 	t.Run("Handles Timer", func(t *testing.T) {
@@ -263,10 +266,9 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		mockGame.ID = 99
 
 		changes := domain.GameChanges{
-			domain.GameHistoryJsonTag:         "1. e4 e5 2. Nf3 Nf6 3. d4 *",
 			domain.GameTimeStampJsonTag:       timeNow().UnixMilli(),
 			domain.GameWhiteTimeJsonTag:       mockGame.WhiteTime + (mockGame.Increment * 1000),
-			domain.GameMovesJsonTag:           fmt.Sprintf("%s %s", mockGame.Moves, move),
+			domain.GameMovesJsonTag:           move,
 			domain.GameWhiteDrawStatusJsonTag: false,
 			domain.GameBlackDrawStatusJsonTag: false,
 		}
@@ -314,7 +316,8 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 		}
 
 		mockGameRepo.AssertExpectations(t)
-		gameUseCase.timerManager.StopAndDeleteTimer(mockGame.ID)
+
+		teardown(mockGame.ID)
 	})
 }
 

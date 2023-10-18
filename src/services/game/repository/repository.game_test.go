@@ -41,12 +41,11 @@ func TestGameRepo_Get(t *testing.T) {
 		"time_stamp_at_turn_start",
 		"white_time",
 		"black_time",
-		"history",
 		"moves",
 		"white_draw_status",
 		"black_draw_status",
 	}).
-		AddRow(gameID, 4, 5, 5000, 0, "", "", 0, time.Now().UnixMilli(), 5000, 5000, "", "", false, true)
+		AddRow(gameID, 4, 5, 5000, 0, "", "", 0, time.Now().UnixMilli(), 5000, 5000, "", false, true)
 
 	query :=
 		fmt.Sprintf(
@@ -78,27 +77,32 @@ func TestGameRepo_Update(t *testing.T) {
 
 	newVersion := mockGame.Version + 1
 	newWhiteTime := 50000000
+	move := "e2e4"
 
 	query := fmt.Sprintf(`
     UPDATE game 
     SET 
         version = $1,
-        white_time = $2
+        %s = $2, %s = CONCAT(%s, $3)
     WHERE id = %d
     AND version = %d
     `,
+		domain.GameWhiteTimeJsonTag,
+		domain.GameMovesJsonTag,
+		domain.GameMovesJsonTag,
 		mockGame.ID,
 		mockGame.Version,
 	)
 
 	mock.ExpectExec(query).
-		WithArgs(newVersion, newWhiteTime).
+		WithArgs(newVersion, newWhiteTime, move).
 		WillReturnResult(sqlmock.NewResult(int64(mockGame.ID), 1))
 
 	r := NewGameRepo(db)
 
 	changes := make(domain.GameChanges)
 	changes[domain.GameWhiteTimeJsonTag] = newWhiteTime
+	changes[domain.GameMovesJsonTag] = move
 
 	assert.NoError(t, err)
 

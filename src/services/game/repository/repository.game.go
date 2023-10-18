@@ -41,7 +41,6 @@ func (c gameRepo) Get(ctx context.Context, id int) (domain.Game, error) {
 		&game.TimeStampAtTurnStart,
 		&game.WhiteTime,
 		&game.BlackTime,
-		&game.History,
 		&game.Moves,
 		&game.WhiteDrawStatus,
 		&game.BlackDrawStatus,
@@ -104,14 +103,18 @@ func (c gameRepo) Update(
 	changes domain.GameChanges,
 ) (updated bool, err error) {
 	newVersion := version + 1
-	variableCount := 1
 	updatedValues := []interface{}{newVersion}
+	// initialized with these values bc these are special cases
+	// - version isnt included in changes
 
 	var updateStr string
 	for field, value := range changes {
-		variableCount += 1
-		updateStr += fmt.Sprintf("%s = $%d, ", field, variableCount)
 		updatedValues = append(updatedValues, value)
+		if field == domain.GameMovesJsonTag {
+			updateStr += fmt.Sprintf("%s = CONCAT(%s, $%d), ", field, field, len(updatedValues))
+		} else {
+			updateStr += fmt.Sprintf("%s = $%d, ", field, len(updatedValues))
+		}
 	}
 	// delete trailing comma and space
 	updateStr = updateStr[0 : len(updateStr)-2]
