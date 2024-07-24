@@ -15,14 +15,13 @@ import (
 	"github.com/notnil/chess"
 )
 
-var gameCache = make(map[int]*chess.Game)
-
 var timeNow = time.Now
 
 type gameUseCase struct {
 	db           *sql.DB
 	gameRepo     domain.GameRepo
 	timerManager *domain_timerManager.TimerManager
+	gameCache    map[int]*chess.Game
 }
 
 func NewGameUseCase(
@@ -33,6 +32,7 @@ func NewGameUseCase(
 		db,
 		gameRepo,
 		domain_timerManager.NewTimerManager(),
+		make(map[int]*chess.Game),
 	}
 }
 
@@ -102,7 +102,7 @@ func (c gameUseCase) Get(ctx context.Context, gameID int) (domain.Game, error) {
 	return game, nil
 }
 
-func makeMove(
+func (c gameUseCase) makeMove(
 	g domain.Game,
 	playerID string,
 	move string,
@@ -111,7 +111,7 @@ func makeMove(
 	// the active color, and errors
 	changes := make(domain.GameChanges)
 
-	gameState, ok := gameCache[g.ID]
+	gameState, ok := c.gameCache[g.ID]
 	if !ok {
 		gameState = chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 		moves := strings.Split(g.Moves, " ")
@@ -127,7 +127,7 @@ func makeMove(
 			}
 		}
 
-		gameCache[g.ID] = gameState
+		c.gameCache[g.ID] = gameState
 	}
 
 	activeColor := gameState.Position().Turn()
@@ -174,7 +174,7 @@ func makeMove(
 	changes[fieldOfActiveTime] = base + (g.Increment * 1000)
 	changes[domain.GameTimeStampJsonTag] = timeNow().UnixMilli()
 
-	changes[domain.GameMovesJsonTag] = fmt.Sprintf("%s", move)
+	changes[domain.GameMovesJsonTag] = move
 
 	return changes, activeColor.Other(), nil
 }
@@ -190,7 +190,6 @@ func (c gameUseCase) handleTimer(
 	if gameOver {
 		c.timerManager.StopAndDeleteTimer(gameID)
 	} else {
-		fmt.Println("starting timer: ", gameID)
 		c.timerManager.StartTimer(gameID, duration, func() {
 			changes := make(domain.GameChanges)
 			changes[domain.GameMethodJsonTag] = "TimeOut"
@@ -237,7 +236,7 @@ func (c gameUseCase) UpdateOnMove(
 		return nil, false, nil
 	}
 
-	changes, activeColor, err := makeMove(g, playerID, move)
+	changes, activeColor, err := c.makeMove(g, playerID, move)
 	if err != nil {
 		return nil, false, err
 	}

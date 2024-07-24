@@ -43,7 +43,6 @@ func (t *TimerManager) StopAndDeleteTimer(timerID int) error {
 
 	timer, exists := t.timers[timerID]
 	if exists {
-		fmt.Println("timer exists")
 		timer.Stop()
 		delete(t.timers, timerID)
 		return nil

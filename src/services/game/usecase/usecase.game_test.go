@@ -51,7 +51,7 @@ func TestGameUseCase_UpdateOnMove(t *testing.T) {
 	}
 
 	teardown := func(gameID int) {
-		gameCache = make(map[int]*chess.Game)
+		gameUseCase.gameCache = make(map[int]*chess.Game)
 		gameUseCase.timerManager.StopAndDeleteTimer(gameID)
 	}
 

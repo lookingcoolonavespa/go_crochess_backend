@@ -15,7 +15,7 @@ type DatabaseConnector struct {
 }
 
 func (dbConnector DatabaseConnector) toConnectString() string {
-	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=disable",
+	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=require",
 		dbConnector.Username,
 		dbConnector.Password,
 		dbConnector.Host,

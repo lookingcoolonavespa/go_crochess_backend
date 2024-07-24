@@ -111,7 +111,7 @@ func (c gameRepo) Update(
 	for field, value := range changes {
 		updatedValues = append(updatedValues, value)
 		if field == domain.GameMovesJsonTag {
-			updateStr += fmt.Sprintf("%s = CONCAT(%s, $%d), ", field, field, len(updatedValues))
+			updateStr += fmt.Sprintf("%s = CASE WHEN %s = '' THEN $%d ELSE %s || ' ' || $%d END, ", field, field, len(updatedValues), field, len(updatedValues))
 		} else {
 			updateStr += fmt.Sprintf("%s = $%d, ", field, len(updatedValues))
 		}
